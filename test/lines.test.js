@@ -132,6 +132,20 @@ test('frontmatter moves every line down by the lines it takes', () => {
   assert.equal(line('r2'), 8);
 });
 
+test('an HTML comment does not swallow the rest of the document', () => {
+  const line = lines(
+    [
+      '# Title', //                1
+      '', //                       2
+      '<!-- a note -->', //        3
+      '', //                       4
+      'after the comment', //      5
+    ].join('\n')
+  );
+
+  assert.equal(line('after the comment'), 5);
+});
+
 test('a table written with CRLF lines counts each line once', () => {
   // The lexer normalises line endings before tokenising, so the measurement
   // has to see the same text: \r\n is one line, not one and a bit.
