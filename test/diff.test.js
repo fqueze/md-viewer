@@ -352,6 +352,30 @@ test('a bug named in the message is a link to it, and a small number is not', ()
   assert.ok(!inCode.html.includes('dv-bug'));
 });
 
+test('URLs in a commit message are links without changing the quoted text', () => {
+  const line = 'Differential Revision: [https://phabricator.services.mozilla.com/D327222](https://phabricator.services.mozilla.com/D327222)';
+  const source = SHOWN.replace('    The subject line', `    ${line}`);
+  const rendered = renderDiff(source);
+  const text = /<span class="dv-text">(.*?)<\/span>/.exec(rendered.html)[1];
+  const url = 'https://phabricator.services.mozilla.com/D327222';
+  const link = `<a class="dv-url" href="${url}" target="_blank" rel="noopener">${url}</a>`;
+  assert.equal(text, `Differential Revision: [${link}](${link})`);
+  assert.equal(text.replace(/<[^>]+>/g, ''), line);
+});
+
+test('a bare message URL excludes sentence punctuation and escapes query strings', () => {
+  const source = SHOWN.replace(
+    '    The subject line',
+    '    See https://example.com/bugs(123)?a=1&b=2. Bug 1951421',
+  );
+  const text = /<span class="dv-text">(.*?)<\/span>/.exec(renderDiff(source).html)[1];
+  assert.match(text, /href="https:\/\/example.com\/bugs\(123\)\?a=1&amp;b=2"/);
+  assert.match(text, /<\/a>\. <a class="dv-bug"/);
+  assert.ok(!text.includes('href="https://example.com/bugs(123)?a=1&b=2"'));
+  const inCode = renderDiff(patch('-See https://example.com\n+No URL here'));
+  assert.ok(!inCode.html.includes('dv-url'));
+});
+
 test('the message is rendered as commentable lines above the files', () => {
   const rendered = renderDiff(SHOWN);
   assert.match(rendered.html, /class="dv-file dv-message"/);

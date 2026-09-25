@@ -279,14 +279,15 @@
   min-height: 1.5em;
 }
 
-/* A bug named in the message. The message is prose in the body font, so the
-   link is styled as a link in prose, not as a highlighted token. */
-.dv-line-msg a.dv-bug {
+/* Links in the message use the prose link style, not a highlighted token. */
+.dv-line-msg a.dv-bug,
+.dv-line-msg a.dv-url {
   color: var(--link);
   text-decoration: none;
 }
 
-.dv-line-msg a.dv-bug:hover {
+.dv-line-msg a.dv-bug:hover,
+.dv-line-msg a.dv-url:hover {
   text-decoration: underline;
 }
 
