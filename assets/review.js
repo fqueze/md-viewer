@@ -148,9 +148,10 @@
    * came back as three lines quoted from "".
    *
    * Asides are skipped here as they are everywhere else, so an endpoint lands
-   * on text the reader was reading and not on a gutter's line number.
+   * on text the reader was reading and not on a gutter's line number. `test`
+   * keeps the endpoints in the comment's scope, as it keeps everything else.
    */
-  function tighten(range) {
+  function tighten(range, test) {
     var first = null;
     var last = null;
     walkText(walkRoot(range), function (node) {
@@ -165,12 +166,19 @@
       if (!first) first = { node: node, offset: from + lead };
       last = { node: node, offset: from + text.replace(/\s+$/, '').length };
       return false;
-    });
+    }, test);
     if (!first) return range;
     var tightened = document.createRange();
     tightened.setStart(first.node, first.offset);
     tightened.setEnd(last.node, last.offset);
     return tightened;
+  }
+
+  /** Whether a range begins on a line with no text: an empty element, or one
+   *  holding only whitespace, rather than the end of the text above it. */
+  function startsOnBlank(range) {
+    var node = range.startContainer;
+    return node.nodeType !== Node.TEXT_NODE || !/\S/.test(node.textContent);
   }
 
   /**
@@ -652,11 +660,16 @@
     selection = window.getSelection();
     if (!selection.rangeCount || !selection.toString().trim()) return;
     // Tightened before anything is read off it. The line a comment reports and
-    // the lines it covers are read off the endpoints, and the column it means
-    // is read off where it starts, so all three want endpoints that are on the
-    // text: a drag begun on the blank line above says nothing about any of it.
-    range = tighten(selection.getRangeAt(0));
-    scope = scopeOf(range.startContainer);
+    // the lines it covers are read off the endpoints, so both want endpoints
+    // that are on the text: a drag begun on the blank line above says nothing
+    // about either. It does say which column it was begun in, so a start on a
+    // blank line picks the scope, and the range is tightened within it. A
+    // start at the end of the line above says nothing about that either, and
+    // the scope is read off where the text begins instead.
+    range = selection.getRangeAt(0);
+    scope = startsOnBlank(range) ? scopeOf(range.startContainer) : null;
+    range = tighten(range, testOf(scope));
+    if (!scope) scope = scopeOf(range.startContainer);
     text = rangeText(range, testOf(scope)).trim();
     if (!text) return;
 

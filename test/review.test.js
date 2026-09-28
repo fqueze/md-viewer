@@ -179,6 +179,35 @@ test('a selection down the new column quotes the new column only', async () => {
   );
 });
 
+test('a drag begun on a blank new line stays in the new column', async () => {
+  const p = await page(`diff --git a/f.js b/f.js
+--- a/f.js
++++ b/f.js
+@@ -1,4 +1,5 @@
+ const a = 1;
+-const oldB = 2;
++const newB = 2;
++
+ const d = 4;
+-const oldC = 3;
++const newC = 3;
+`);
+  p.split();
+  // The first text the range covers after the blank insertion is an unchanged
+  // line, which both columns share — but the drag is down the right column.
+  assert.deepEqual([1, 2, 3, 4, 5, 6].map(p.marker), ['-', '+', '+', ' ', '-', '+']);
+  const last = p.line(6).firstChild;
+  const range = p.document.createRange();
+  range.setStart(p.line(3), 0);
+  range.setEnd(last, last.textContent.length);
+  await p.selectRange(range);
+  p.comment('why');
+
+  const marked = (n) => Boolean(p.line(n).querySelector('mark.mdv-mark'));
+  assert.ok(marked(6), 'the last new line is part of the comment');
+  assert.ok(!marked(5), 'the old column is not what it is about');
+});
+
 test('the quoted diff covers every line the comment was written on', async () => {
   const p = await page();
   p.split();
