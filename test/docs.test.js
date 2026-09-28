@@ -68,10 +68,8 @@ test('only files that are really there become links', async () => {
   assert.equal(docs.find('missing.md'), null, 'nothing is on disk under that name');
 
   const { html } = renderMarkdown(source, { baseDir: path.dirname(file), docs });
-  assert.match(
-    html,
-    new RegExp(`<a class="mdv-doc"[^>]*f=${encodeURIComponent(path.join(dir, 'docs', 'plan.md'))}`),
-  );
+  // Linked at its own path, which is where the server shows a document.
+  assert.ok(html.includes(`href="${path.join(dir, 'docs', 'plan.md')}"`), html);
   // The two that resolved to nothing are still code spans, unwrapped.
   assert.equal(html.match(/<a class="mdv-doc"/g).length, 1);
   assert.match(html, /<code>missing\.md<\/code>/);

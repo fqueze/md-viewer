@@ -111,6 +111,11 @@ to another `.md` file opens that file in the same tab, watched like the first
 one. Links to other sites open in a new tab, so following one never unloads the
 preview.
 
+A document is served at its own path, `http://127.0.0.1:<port>/Users/you/notes/plan.md`,
+so another file is a matter of editing the address. Each directory in the path
+at the top of the page links to a listing of the markdown files in it, and of
+the directories below it.
+
 ## Commit links
 
 A commit id written in backticks becomes a link to that commit's diff, opened

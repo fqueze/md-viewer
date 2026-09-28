@@ -14,12 +14,12 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 import { spawn } from 'node:child_process';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { renderMarkdown, findShaCandidates, findDocCandidates } from './lib/render.js';
+import { renderMarkdown, findShaCandidates, findDocCandidates, pageHref } from './lib/render.js';
 import { openBrowser } from './lib/browser.js';
 import { looksLikeDiff } from './lib/diff.js';
 import { buildDiffPage } from './lib/diff-page.js';
 import { openRepository } from './lib/git.js';
-import { openDocuments } from './lib/docs.js';
+import { MARKDOWN_EXT, openDocuments } from './lib/docs.js';
 import { parseRemoteTarget, readRemoteFile, startRemoteViewer } from './lib/remote.js';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
@@ -195,6 +195,51 @@ async function renderFile(file, linkMode) {
   return { html, title: tabTitle(title, file) };
 }
 
+/**
+ * What the server shows at a path: the document, or for a directory the
+ * markdown files in it, with the directories below it to go on into.
+ */
+async function renderPath(file) {
+  const stats = await fsp.stat(file);
+  return stats.isDirectory() ? { ...(await renderListing(file)), listing: true } : renderFile(file, 'server');
+}
+
+/**
+ * A directory as a list of what can be opened from it. Only markdown is
+ * listed, since nothing else would render, and hidden entries are left out as
+ * `ls` leaves them out. A link to a directory is followed to see what it holds.
+ */
+async function renderListing(dir) {
+  const entries = await fsp.readdir(dir, { withFileTypes: true });
+  const dirs = [];
+  const docs = [];
+  await Promise.all(
+    entries.map(async (entry) => {
+      if (entry.name.startsWith('.')) return;
+      let isDir = entry.isDirectory();
+      let isFile = entry.isFile();
+      if (entry.isSymbolicLink()) {
+        const target = await fsp.stat(path.join(dir, entry.name)).catch(() => null);
+        isDir = Boolean(target?.isDirectory());
+        isFile = Boolean(target?.isFile());
+      }
+      if (isDir) dirs.push(entry.name);
+      else if (isFile && MARKDOWN_EXT.has(path.extname(entry.name).toLowerCase())) docs.push(entry.name);
+    }),
+  );
+  const byName = (a, b) => a.localeCompare(b);
+  const item = (name, label) =>
+    `<li><a href="${escapeHtml(pageHref(path.join(dir, name)))}">${escapeHtml(label)}</a></li>`;
+  const items = [
+    ...dirs.sort(byName).map((name) => item(name, name + '/')),
+    ...docs.sort(byName).map((name) => item(name, name)),
+  ];
+  const html = items.length
+    ? `<ul class="mdv-listing">\n${items.join('\n')}\n</ul>`
+    : '<p class="mdv-listing-empty">No markdown files here.</p>';
+  return { html, title: `${path.basename(dir) || dir}/` };
+}
+
 /** @type {Map<string, ReturnType<typeof openRepository>>} */
 const repositories = new Map();
 
@@ -229,24 +274,43 @@ function tabTitle(title, file) {
  * one at the top of a document, and the basename is the part worth reading, so
  * it stays unmuted. Many files worth previewing are named SKILL.md or README.md,
  * which is why the directory is shown at all.
+ *
+ * With `links`, as the server has it, each directory on the way links to its
+ * listing, to see what else is next to the document.
  */
-function pathHeader(file) {
+function pathHeader(file, { links = false } = {}) {
   const home = os.homedir();
   const inHome = file === home || file.startsWith(home + path.sep);
   const shown = inHome ? '~' + file.slice(home.length) : file;
   const dir = shown.slice(0, shown.length - path.basename(shown).length);
+  let dirHtml = escapeHtml(dir);
+  if (links && dir) {
+    // '~/a/b/' is ['~', 'a', 'b'], and '/a/b/' is ['', 'a', 'b']: the root
+    // itself is left unlinked, since / is where the first document is served.
+    let at = '';
+    dirHtml =
+      dir
+        .split('/')
+        .slice(0, -1)
+        .map((part, i) => {
+          at = i === 0 ? (inHome ? home : '/') : path.join(at, part);
+          if (!part) return '';
+          return `<a href="${escapeHtml(pageHref(at))}">${escapeHtml(part)}</a>`;
+        })
+        .join('/') + '/';
+  }
   return (
     '<div class="mdv-path" title="' +
     escapeHtml(file) +
     '"><span class="mdv-path-dir">' +
-    escapeHtml(dir) +
+    dirHtml +
     '</span>' +
     escapeHtml(path.basename(shown)) +
     '</div>\n'
   );
 }
 
-function page({ title, body, file, head = '', tail = '' }) {
+function page({ title, body, file, head = '', tail = '', links = false }) {
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -257,7 +321,7 @@ ${head}
 </head>
 <body>
 <div id="mdv-root" data-file="${escapeHtml(file)}">
-${pathHeader(file)}<article id="mdv-content">
+${pathHeader(file, { links })}<article id="mdv-content">
 ${body}
 </article>
 </div>
@@ -276,6 +340,11 @@ const REVIEW_BAR =
   '</div>\n';
 const SCRIPTS =
   '<script src="/_assets/review.js"></script>\n<script src="/_assets/client.js"></script>';
+/** A listing is not reviewed, but it still reloads, and says when it is closed. */
+const LISTING_SCRIPTS = '<script src="/_assets/client.js"></script>';
+
+/** Paths the server answers itself; every other path is a file or directory. */
+const ROUTES = new Set(['/api/content', '/api/events', '/api/bye', '/_commit', '/_file']);
 
 // ---------------------------------------------------------------------------
 // One-shot mode: standalone HTML file, no server
@@ -494,7 +563,8 @@ function serve(initialFile, options) {
   }
 
   async function handle(req, res, url) {
-    if (url.pathname === '/') {
+    const isPage = !ROUTES.has(url.pathname) && !assets[url.pathname];
+    if (isPage) {
       notePageRequest(req);
     }
 
@@ -502,16 +572,12 @@ function serve(initialFile, options) {
     // other pages the browser happens to be showing cannot read local files
     // through this server.
     if (url.pathname === '/' && authorized(url.searchParams.get('t'))) {
-      url.searchParams.delete('t');
       // Name the file in the URL as well, so the address bar says which document
       // this is from the first load on. Without it the opening page is a bare
       // host and port, and only pages reached by following a link say anything.
-      if (!url.searchParams.has('f')) {
-        url.searchParams.set('f', initialFile);
-      }
       res.writeHead(302, {
         'set-cookie': `mdv_token=${token}; Path=/; SameSite=Lax; HttpOnly`,
-        location: url.pathname + url.search,
+        location: pageHref(initialFile),
       });
       res.end();
       return;
@@ -531,7 +597,9 @@ function serve(initialFile, options) {
 
     switch (url.pathname) {
       case '/':
-        await handlePage(res, url);
+        // The document md-viewer was started on, at the path it is shown at.
+        res.writeHead(302, { location: pageHref(initialFile) });
+        res.end();
         return;
       case '/api/content':
         await handleContent(res, url);
@@ -553,7 +621,7 @@ function serve(initialFile, options) {
         await handleRawFile(res, url);
         return;
       default:
-        send(res, 404, MIME['.txt'], 'not found\n');
+        await handlePage(res, url);
     }
   }
 
@@ -563,10 +631,16 @@ function serve(initialFile, options) {
   }
 
   async function handlePage(res, url) {
-    const file = requestedFile(url);
+    let file;
+    try {
+      file = path.resolve(decodeURIComponent(url.pathname));
+    } catch {
+      send(res, 400, MIME['.txt'], 'bad path\n');
+      return;
+    }
     let rendered;
     try {
-      rendered = await renderFile(file, 'server');
+      rendered = await renderPath(file);
     } catch (error) {
       send(
         res,
@@ -577,6 +651,7 @@ function serve(initialFile, options) {
           file,
           body: `<h1>Cannot read this file</h1><p><code>${escapeHtml(file)}</code></p><p>${escapeHtml(error.message)}</p>`,
           head: '<link rel="stylesheet" href="/_assets/style.css">',
+          links: true,
         }),
       );
       return;
@@ -591,7 +666,8 @@ function serve(initialFile, options) {
         file,
         body: rendered.html,
         head: '<link rel="stylesheet" href="/_assets/style.css">',
-        tail: REVIEW_BAR + STATUS_PILL + SCRIPTS,
+        tail: rendered.listing ? STATUS_PILL + LISTING_SCRIPTS : REVIEW_BAR + STATUS_PILL + SCRIPTS,
+        links: true,
       }),
     );
   }
@@ -599,7 +675,7 @@ function serve(initialFile, options) {
   async function handleContent(res, url) {
     const file = requestedFile(url);
     try {
-      send(res, 200, MIME['.json'], JSON.stringify(await renderFile(file, 'server')));
+      send(res, 200, MIME['.json'], JSON.stringify(await renderPath(file)));
     } catch {
       send(res, 200, MIME['.json'], JSON.stringify({ missing: true }));
     }
