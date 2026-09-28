@@ -43,8 +43,9 @@ Options:
 
 In a jj repository the argument is a revset, such as lqs::tvz or 'trunk()..@'.
 In a git repository it is a range, such as main..HEAD, or one commit. With no
-argument it is the stack that is applied now: everything from trunk() up to
-the tip of the stack @ is in, less the empty commit jj new leaves on top. The
+argument it is the stack that is applied now: in jj everything from trunk()
+up to the tip of the stack @ is in, less the empty commit jj new leaves on top;
+in git origin/main..HEAD, or whatever origin/HEAD names instead of main. The
 commits are shown oldest first, each with its own review comments. Exits
 shortly after the page is loaded — the tab stays usable, since the comments
 live in the page.`;

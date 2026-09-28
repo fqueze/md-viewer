@@ -320,9 +320,10 @@ not call it `main` needs no extra flag here. The empty undescribed commit that
 changes in it is kept, since `jj diff` would show it. Working on a commit in
 the middle of a stack still reviews the whole stack: the tip is the newest head
 growing out of `@`, so a change that has been branched off twice reviews the
-branch that moved last. In a plain git checkout the stack is what the current
-branch adds to the branch it tracks, or failing that to `origin/main`,
-`origin/master`, `main` or `master`.
+branch that moved last. In a plain git checkout the stack is what `HEAD` adds
+to the remote's default branch, `origin/HEAD`, or failing that to
+`origin/main`, `origin/master`, `main` or `master` — `origin/main..HEAD`, most
+of the time.
 
 ```
 stack-viewer [options] [revset]

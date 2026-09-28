@@ -256,33 +256,37 @@ test('with no revset the applied jj stack is reviewed', { skip: !haveJj() }, asy
   );
 });
 
-test('with no revset a git stack starts at the branch it tracks', async () => {
+test('with no revset a git stack starts at the remote trunk', async () => {
   const { dir, shas, git } = scratchGitRepo();
   const stack = await openStack({ root: dir, kind: 'git' });
 
-  // On the trunk branch itself, with nothing on top of it.
+  // With no remote, on the trunk branch itself, with nothing on top of it.
   const onMain = await stack.defaultStack();
   assert.deepEqual(onMain, { revset: 'main..HEAD', title: 'main..HEAD', base: 'main' });
   assert.deepEqual(await stack.list(onMain.revset), []);
 
+  // A feature branch that has been pushed, so that it tracks its own copy on
+  // the remote: the stack is still everything it adds to the remote trunk.
+  git('remote', 'add', 'origin', dir);
+  git('update-ref', 'refs/remotes/origin/main', shas[1]);
   git('checkout', '-q', '-b', 'feature', shas[1]);
   fs.writeFileSync(path.join(dir, 'b.txt'), 'work\n');
   git('add', 'b.txt');
   git('commit', '-qm', 'the one patch');
-  git('branch', '--set-upstream-to=main', 'feature');
+  git('update-ref', 'refs/remotes/origin/feature', 'HEAD');
+  git('branch', '--set-upstream-to=origin/feature', 'feature');
 
   const onFeature = await stack.defaultStack();
-  assert.equal(
-    onFeature.base,
-    'main',
-    'the upstream is named by the branch it points at, not @{upstream}',
-  );
-  const commits = await stack.list(onFeature.revset);
+  assert.equal(onFeature.revset, 'origin/main..HEAD', 'not origin/feature..HEAD');
   assert.deepEqual(
-    commits.map((c) => c.sha),
+    (await stack.list(onFeature.revset)).map((c) => c.sha),
     [git('rev-parse', 'HEAD').trim()],
-    'only the commits this branch adds to its upstream',
+    'the pushed commit is still part of the stack',
   );
+
+  // The remote's own default branch comes first, by the name it points at.
+  git('symbolic-ref', 'refs/remotes/origin/HEAD', 'refs/remotes/origin/main');
+  assert.equal((await stack.defaultStack()).title, 'origin/main..HEAD');
 });
 
 
