@@ -7,6 +7,8 @@
   --dv-add-bg-strong: #abf2bc;
   --dv-del-bg: #ffebe9;
   --dv-del-bg-strong: #ffc1bf;
+  --dv-indent-fg: rgb(0 0 0 / 0.25);
+  --dv-indent-bg: rgb(251 175 175 / 0.7);
   --dv-space: #8250df;
   --dv-space-bg: #f3eafd;
   --dv-hunk-fg: #59636e;
@@ -19,6 +21,8 @@
     --dv-add-bg-strong: #1f6c33;
     --dv-del-bg: #25171c;
     --dv-del-bg-strong: #8b2c31;
+    --dv-indent-fg: rgb(255 255 255 / 0.35);
+    --dv-indent-bg: var(--dv-del-bg-strong);
     --dv-space: #d2a8ff;
     --dv-space-bg: #2b1f3d;
     --dv-hunk-fg: #9198a1;
@@ -168,6 +172,19 @@
   padding-left: 0.45em;
   color: var(--fg-muted);
   user-select: none;
+}
+
+/* The direction of a reindent, drawn as Phabricator draws it: a faint glyph on
+   a tile the height of the line, against the gutter, in Phabricator's own
+   translucent red. */
+.dv-marker-indent {
+  align-self: stretch;
+  justify-self: start;
+  width: 1.1em;
+  padding: 0;
+  text-align: center;
+  color: var(--dv-indent-fg);
+  background: var(--dv-indent-bg);
 }
 
 .dv-text {

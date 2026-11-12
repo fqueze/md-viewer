@@ -231,9 +231,11 @@ diff-viewer [options] [file.diff]
 
 Two things a plain `git diff` leaves you to work out for yourself:
 
-- **A line changed only by whitespace says so.** The changed runs spell their
-  spaces and tabs out as `·` and `→`, and the line is tagged `whitespace`, so a
-  reindent is never mistaken for a real edit.
+- **A line changed only by whitespace says so.** A reindented line gets `»` or
+  `«` in the old line's gutter, for an indent that went in or out, as on
+  Phabricator. Any other whitespace change spells the changed spaces and tabs
+  out as `·` and `→`. Either way the line is tagged `whitespace`, so it is
+  never mistaken for a real edit.
 - **One word changing in a sentence highlights that word.** Lines are matched
   to the line they became by how much text they share, not by their position in
   the hunk, so an edit is still found when ten lines were inserted above it. A

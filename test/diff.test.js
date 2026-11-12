@@ -171,6 +171,26 @@ test('a line changed only by whitespace says so', async (t) => {
   }
 });
 
+test('a reindented line says which way in the gutter, not in its text', async (t) => {
+  const markers = (body) => {
+    const html = renderDiff(patch(body)).html;
+    return {
+      indent: [...html.matchAll(/dv-marker-indent[^>]*>([^<]*)</g)].map((m) => m[1]),
+      spelled: /·|→/.test(html),
+    };
+  };
+  const cases = [
+    ['indented', '-x = 1;\n+  x = 1;', ['»'], false],
+    ['dedented', '-    x = 1;\n+  x = 1;', ['«'], false],
+    ['four spaces to a tab', '-    x = 1;\n+' + TAB + 'x = 1;', ['»'], false],
+    ['eight spaces to a tab', '-        x = 1;\n+' + TAB + 'x = 1;', [], true],
+    ['spaces around an operator', '-const v = f(a);\n+const v  =  f(a);', [], true],
+  ];
+  for (const [name, body, indent, spelled] of cases) {
+    await t.test(name, () => assert.deepEqual(markers(body), { indent, spelled }));
+  }
+});
+
 test('a word that moved is marked, a line that is new is not', async (t) => {
   await t.test('one word in a sentence', () => {
     const rows = rendered('-The quick brown fox jumps over the dog.\n+The quick brown fox leaps over the dog.');

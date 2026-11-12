@@ -68,7 +68,7 @@
     return element && element.closest ? element.closest('.dv-line') : null;
   }
 
-  /** The text of one line, without its gutters or its +/- marker. */
+  /** The text of one line, without its gutters or its marker column. */
   function textOf(line) {
     var text = line.querySelector('.dv-text');
     return text ? text.textContent : '';
