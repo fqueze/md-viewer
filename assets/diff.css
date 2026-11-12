@@ -217,6 +217,12 @@
   color: var(--dv-space);
 }
 
+/* The spelled-out spaces keep that colour over the syntax colour of the code
+   they sit in. */
+.dv-line-space .dv-word * {
+  color: inherit;
+}
+
 .dv-row-hunk {
   padding: 0.15rem 0.5rem;
   color: var(--dv-hunk-fg);

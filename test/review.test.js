@@ -117,6 +117,7 @@ async function page(source = PATCH) {
     document,
     line,
     msgLine,
+    texts,
     marker,
     split() {
       const toggle = document.getElementById('dv-layout');
@@ -196,7 +197,7 @@ test('a drag begun on a blank new line stays in the new column', async () => {
   // The first text the range covers after the blank insertion is an unchanged
   // line, which both columns share — but the drag is down the right column.
   assert.deepEqual([1, 2, 3, 4, 5, 6].map(p.marker), ['-', '+', '+', ' ', '-', '+']);
-  const last = p.line(6).firstChild;
+  const last = p.texts(p.line(6)).at(-1);
   const range = p.document.createRange();
   range.setStart(p.line(3), 0);
   range.setEnd(last, last.textContent.length);

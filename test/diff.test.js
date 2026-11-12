@@ -17,11 +17,14 @@ import { renderDiff, looksLikeDiff, splitCommitMessage } from '../lib/diff.js';
 const TAB = String.fromCharCode(9);
 
 /** Wrap a run of `-`/`+`/` ` lines in just enough diff to be parsed. */
-function patch(body) {
+function patch(body, name = 'f') {
   const lines = body.split('\n').filter((line) => line !== '');
   const old = lines.filter((line) => line[0] !== '+').length;
   const now = lines.filter((line) => line[0] !== '-').length;
-  return `diff --git a/f b/f\n--- a/f\n+++ b/f\n@@ -1,${old || 1} +1,${now || 1} @@\n${body}\n`;
+  return (
+    `diff --git a/${name} b/${name}\n--- a/${name}\n+++ b/${name}\n` +
+    `@@ -1,${old || 1} +1,${now || 1} @@\n${body}\n`
+  );
 }
 
 const unescape = (text) =>
@@ -249,6 +252,83 @@ test('a diff with no file changes still renders', () => {
   const result = renderDiff('diff --git a/x.png b/x.png\nBinary files a/x.png and b/x.png differ\n');
   assert.equal(result.files, 1);
   assert.ok(result.html.includes('No textual changes'));
+});
+
+// ---------------------------------------------------------------------------
+// Syntax highlighting
+// ---------------------------------------------------------------------------
+
+/** The text cell of every line drawn, mirrors included, in markup order. */
+function cells(body, name) {
+  const html = renderDiff(patch(body, name)).html;
+  const line = /<div class="dv-line dv-line-(\w+)([^"]*)"[^>]*>([\s\S]*?)<\/div>/g;
+  return [...html.matchAll(line)].map(([, side, rest, inner]) => ({
+    side: rest.includes('dv-line-mirror') ? 'mirror' : side,
+    html: /<span class="dv-text">([\s\S]*)<\/span>$/.exec(inner)[1],
+  }));
+}
+
+test('a file is coloured in the language its name says', () => {
+  for (const { side, html } of cells('-const a = 1;\n+const a = 2;', 'x.js')) {
+    assert.match(html, /^<span class="hljs-keyword">const<\/span>/, `the ${side} line`);
+  }
+  assert.match(cells('-all: x\n+all: y', 'Makefile')[0].html, /hljs-/);
+  assert.doesNotMatch(renderDiff(patch('-a = 1\n+a = 2', 'x.unknown')).html, /hljs-/);
+  assert.doesNotMatch(renderDiff(patch('-a = 1\n+a = 2', 'notes.txt')).html, /hljs-/);
+});
+
+test('a header is read as C++, and a patch file is left plain', () => {
+  const [del] = cells(' namespace a {\n-class A : public B {};\n+class A : public C {};', 'x.h');
+  assert.match(del.html, /^<span class="hljs-keyword">namespace<\/span>/);
+  for (const name of ['x.patch', 'x.diff']) {
+    assert.doesNotMatch(renderDiff(patch(' ctx\n-+a\n++b', name)).html, /hljs-/, name);
+  }
+});
+
+test('a comment opened above a line still colours it as a comment', () => {
+  const lines = cells(' /*\n- * old words\n+ * new words\n  */', 'x.js');
+  for (const { side, html } of lines) {
+    assert.match(html, /^<span class="hljs-comment">/, `the ${side} line is in the comment`);
+  }
+});
+
+test('a changed phrase is one mark, with its syntax inside it', () => {
+  const [, add] = cells('-x = f();\n+x = new Foo();', 'x.js');
+  assert.equal(add.html.match(/dv-word/g).length, 1);
+  assert.match(
+    add.html,
+    /<span class="dv-word"><span class="hljs-keyword">new<\/span> <span class="[^"]*">Foo<\/span><\/span>/,
+  );
+});
+
+test('each copy of an unchanged line is coloured as its own file', () => {
+  // Deleting the `/*` ends the comment, so `x = 1;` is code in the new file only.
+  const ctx = cells('-/*\n+//\n x = 1;', 'x.js').filter((c) => c.side === 'ctx' || c.side === 'mirror');
+  assert.deepEqual(ctx.map((c) => c.side), ['ctx', 'mirror']);
+  assert.match(ctx[0].html, /^<span class="hljs-comment">x = 1;/);
+  assert.doesNotMatch(ctx[1].html, /hljs-comment/);
+});
+
+test('highlighted lines still read as the patch has them', () => {
+  const body = [
+    ' const s = "a<b & c>d";',
+    '-\tfoo(s, `tmpl ${x}`);',
+    '+  foo(s, `tmpl ${y}`);',
+    '+// added <tag>',
+    '-let gone = 1;',
+  ].join('\n');
+  const html = renderDiff(patch(body, 'x.js')).html;
+  assert.match(html, /hljs-/);
+  const drawn = cells(body, 'x.js')
+    .filter((c) => c.side !== 'mirror')
+    .map((c) => unescape(c.html));
+  assert.deepEqual(drawn, [
+    'const s = "a<b & c>d";',
+    TAB + 'foo(s, `tmpl ${x}`);',
+    'let gone = 1;',
+    '  foo(s, `tmpl ${y}`);',
+    '// added <tag>',
+  ]);
 });
 
 // ---------------------------------------------------------------------------
