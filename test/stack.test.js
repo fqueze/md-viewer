@@ -396,3 +396,45 @@ test('the list switches commits, and the hash remembers which', async () => {
   // The review across the stack is hidden until a commit has a comment.
   assert.equal(document.getElementById('sv-review').hidden, true);
 });
+
+test('the files of the current commit are listed as a tree, and lead to their section', async () => {
+  const file = (name) =>
+    `diff --git a/${name} b/${name}\n--- a/${name}\n+++ b/${name}\n@@ -1 +1 @@\n-a\n+b\n`;
+  const source =
+    commit(SHA2, 'many files', 'one', 'two').replace(/diff --git[^]*$/, '') +
+    ['top.js', 'tk/cp/pw/tests/data/w.js', 'tk/cp/pw/tests/t.js', 'tk/cp/pw/worker/p.js']
+      .map(file)
+      .join('');
+  const patches = [PATCHES[0], { sha: SHA2, label: 'psmyywvy', source }];
+  const html = await buildStackPage(patches, { title: 't', where: '/src/repo' });
+  const dom = new JSDOM(html, { runScripts: 'dangerously', url: 'http://127.0.0.1/#2' });
+  const { document } = dom.window;
+
+  const lists = document.querySelectorAll('.sv-files-of');
+  assert.deepEqual([...lists].map((list) => list.hidden), [true, false], 'only the current commit');
+  // The depth is on the row: the directory's own item, or the file's button.
+  const depth = (li) => (li.querySelector('.sv-file') ?? li).style.getPropertyValue('--sv-depth');
+  const rows = [...lists[1].querySelectorAll('li')].map((li) => `${depth(li)} ${li.textContent}`);
+  // Directories come before files, and one holding only another shares its row.
+  assert.deepEqual(rows, [
+    '0 tk/cp/pw/',
+    '1 tests/',
+    '2 data/',
+    '3 w.js',
+    '2 t.js',
+    '1 worker/',
+    '2 p.js',
+    '0 top.js',
+  ]);
+
+  // Each file names the section of the page that shows it.
+  const page = JSON.parse(document.getElementById('sv-page-1').textContent);
+  for (const button of lists[1].querySelectorAll('.sv-file')) {
+    const id = `dv-file-${button.dataset.file}`;
+    const section = new RegExp(`id="${id}" data-path="([^"]*)"`).exec(page);
+    assert.equal(section?.[1], button.title, id);
+  }
+
+  document.querySelector('.sv-entry').click();
+  assert.deepEqual([...lists].map((list) => list.hidden), [false, true], 'the list follows the commit');
+});

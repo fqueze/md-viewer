@@ -119,9 +119,135 @@
 .sv-list {
   grid-column: 1;
   grid-row: 2;
-  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  /* What the handle on its edge is placed against. */
+  position: relative;
   border-right: 1px solid var(--border);
   background: var(--bg-subtle);
+}
+
+/* The commits on top, taking what they need up to two thirds of the height,
+   and the current commit's files in the rest. Each scrolls on its own, so a
+   long stack cannot push the files out of sight, nor a long commit the stack. */
+.sv-commits {
+  flex: 0 1 auto;
+  max-height: calc(200% / 3);
+  overflow-y: auto;
+}
+
+.sv-splitter {
+  flex: 0 0 5px;
+  border-top: 1px solid var(--border);
+  cursor: row-resize;
+  touch-action: none;
+}
+
+.sv-width-handle {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  /* Over the list's border, reaching a little into the page beside it. */
+  right: -4px;
+  width: 7px;
+  z-index: 1;
+  cursor: col-resize;
+  touch-action: none;
+}
+
+.sv-splitter:hover,
+.sv-splitter:active,
+.sv-width-handle:hover,
+.sv-width-handle:active {
+  background: color-mix(in srgb, var(--link) 35%, transparent);
+}
+
+.sv-files {
+  flex: 1 1 0;
+  /* What the files' offsets are measured from, for keeping one in sight. */
+  position: relative;
+  overflow-y: auto;
+  font-size: 0.8rem;
+  line-height: 1.4;
+}
+
+.sv-files-of[hidden] {
+  display: none;
+}
+
+.sv-files ul {
+  margin: 0;
+  padding: 0.4rem 0;
+  list-style: none;
+}
+
+/* Long names are cut short rather than wrapped: the tree is read by its shape,
+   and the title holds the whole path. */
+.sv-dir,
+.sv-file {
+  display: block;
+  width: 100%;
+  padding: 0.1rem 0.7rem 0.1rem calc(0.7rem + var(--sv-depth) * 1rem);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* An open folder before a directory and a page before a file, as Phabricator
+   draws them: it is the icons that make the indents read as a tree. Drawn as
+   masks so that they take the muted text colour, light or dark. */
+.sv-dir::before,
+.sv-file::before {
+  content: '';
+  display: inline-block;
+  width: 1em;
+  height: 1em;
+  margin-right: 0.35em;
+  vertical-align: -0.15em;
+  background: var(--fg-muted);
+  mask: var(--sv-icon) center / contain no-repeat;
+}
+
+.sv-dir::before {
+  --sv-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='black' stroke-width='1.2' stroke-linejoin='round'%3E%3Cpath d='M1.5 13.5v-10h4l1.5 1.5h6v2'/%3E%3Cpath d='M1.5 13.5l2-6.5h11l-2 6.5z'/%3E%3C/svg%3E");
+}
+
+.sv-file::before {
+  --sv-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='black' stroke-width='1.2' stroke-linejoin='round'%3E%3Cpath d='M3.5 1.5h6l3 3v10h-9z'/%3E%3Cpath d='M9.5 1.5v3h3'/%3E%3C/svg%3E");
+}
+
+.sv-file {
+  font: inherit;
+  text-align: left;
+  color: var(--fg);
+  background: none;
+  border: 0;
+  cursor: pointer;
+}
+
+.sv-file:hover {
+  background: color-mix(in srgb, var(--fg) 5%, transparent);
+}
+
+/* The file at the top of the page, which is where the reader is. */
+.sv-file.sv-file-current {
+  background: color-mix(in srgb, var(--fg) 10%, transparent);
+}
+
+.sv-file-added {
+  color: var(--accent);
+}
+
+.sv-file-deleted {
+  color: var(--danger);
+  text-decoration: line-through;
+}
+
+.sv-files-none {
+  margin: 0;
+  padding: 0.6rem 0.7rem;
+  color: var(--fg-muted);
 }
 
 .sv-list ol {

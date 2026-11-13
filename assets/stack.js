@@ -18,6 +18,11 @@
   var copyAll = document.getElementById('sv-review-copy');
   var listToggle = document.getElementById('sv-list-toggle');
   var entries = list.querySelectorAll('.sv-entry');
+  var fileLists = list.querySelectorAll('.sv-files-of');
+  var commits = list.querySelector('.sv-commits');
+  var splitter = document.getElementById('sv-splitter');
+  var widthHandle = document.getElementById('sv-width-handle');
+  var files = document.getElementById('sv-files');
 
   /** @type {{sha: string, label: string, subject: string}[]} */
   var meta = JSON.parse(document.getElementById('sv-meta').textContent);
@@ -60,7 +65,56 @@
       setCount(i, event.detail.count);
     });
     win.addEventListener('keydown', onKeyDown);
+    track(win, doc, i);
     if (i === current) win.focus();
+  }
+
+  /**
+   * Keep the file at the top of a commit's page marked in that commit's list,
+   * as Phabricator does, so the list also says where in the commit the reader
+   * is. That is the first file whose section has not yet scrolled out of view
+   * above. The work waits for the next frame, since scrolling fires faster
+   * than anything is drawn.
+   */
+  function track(win, doc, i) {
+    // The commit message is drawn as a section too, ahead of the files.
+    var sections = doc.querySelectorAll('.dv-file:not(.dv-message)');
+    var buttons = fileLists[i].querySelectorAll('.sv-file');
+    var shown = -1;
+    var pending = false;
+
+    function update() {
+      pending = false;
+      var n = 0;
+      while (n < sections.length - 1 && sections[n].getBoundingClientRect().bottom <= 0) n++;
+      if (n === shown) return;
+      shown = n;
+      for (var k = 0; k < buttons.length; k++) {
+        var here = Number(buttons[k].dataset.file) === n;
+        buttons[k].classList.toggle('sv-file-current', here);
+        if (here) keepInView(buttons[k]);
+      }
+    }
+    function schedule() {
+      if (pending) return;
+      pending = true;
+      win.requestAnimationFrame(update);
+    }
+    win.addEventListener('scroll', schedule);
+    // Switching between one column and two changes how tall every section is.
+    win.addEventListener('resize', schedule);
+    update();
+  }
+
+  /** Scroll the list of files, and only it, so that `button` is in sight. */
+  function keepInView(button) {
+    var top = button.offsetTop;
+    var bottom = top + button.offsetHeight;
+    if (top < files.scrollTop) {
+      files.scrollTop = top;
+    } else if (bottom > files.scrollTop + files.clientHeight) {
+      files.scrollTop = bottom - files.clientHeight;
+    }
   }
 
   function show(i) {
@@ -76,6 +130,9 @@
         entries[j].removeAttribute('aria-current');
       }
     }
+    for (j = 0; j < fileLists.length; j++) {
+      fileLists[j].hidden = j !== i;
+    }
     current = i;
     if (entries[i].scrollIntoView) entries[i].scrollIntoView({ block: 'nearest' });
     document.title = (meta[i].subject || meta[i].label) + ' — ' + root.dataset.title;
@@ -88,6 +145,17 @@
     if (frame.contentWindow && frame.contentDocument && frame.contentDocument.readyState === 'complete') {
       frame.contentWindow.focus();
     }
+  }
+
+  /** Scroll the current commit's page to its `n`th file. */
+  function reveal(n) {
+    var frame = frames[current];
+    // A frame that has not loaded yet has no sections to scroll to.
+    var section = frame.contentDocument && frame.contentDocument.getElementById('dv-file-' + n);
+    if (!section) return;
+    section.scrollIntoView({ block: 'start' });
+    // Back to the page, so that the keys it listens for still reach it.
+    frame.contentWindow.focus();
   }
 
   function fromHash() {
@@ -191,6 +259,56 @@
     event.preventDefault();
   }
 
+  // ---------------------------------------------------------------------------
+  // The splitters: between the commits and the files, and beside the list
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Call `move` with each pointer event of a drag begun on `handle`. The
+   * pointer is captured, so the drag keeps going when it crosses into a
+   * commit's frame, which would otherwise take the events for itself.
+   */
+  function draggable(handle, move) {
+    handle.addEventListener('pointerdown', function (event) {
+      if (event.button !== 0) return;
+      event.preventDefault();
+      handle.setPointerCapture(event.pointerId);
+      function end() {
+        handle.removeEventListener('pointermove', move);
+        handle.removeEventListener('pointerup', end);
+        handle.removeEventListener('pointercancel', end);
+      }
+      handle.addEventListener('pointermove', move);
+      handle.addEventListener('pointerup', end);
+      handle.addEventListener('pointercancel', end);
+    });
+  }
+
+  // The height of the commits; the files take the rest.
+  draggable(splitter, function (event) {
+    var room = list.clientHeight - splitter.offsetHeight;
+    var height = Math.max(0, Math.min(event.clientY - commits.getBoundingClientRect().top, room));
+    commits.style.flex = '0 0 ' + height + 'px';
+    commits.style.maxHeight = 'none';
+  });
+
+  // The width of the list; the commit's page takes the rest, and keeps at
+  // least a third of the window.
+  draggable(widthHandle, function (event) {
+    var width = event.clientX - list.getBoundingClientRect().left;
+    width = Math.max(120, Math.min(width, (window.innerWidth * 2) / 3));
+    root.style.setProperty('--sv-list-width', width + 'px');
+  });
+
+  // A double-click on either puts it back where it started.
+  splitter.addEventListener('dblclick', function () {
+    commits.style.flex = '';
+    commits.style.maxHeight = '';
+  });
+  widthHandle.addEventListener('dblclick', function () {
+    root.style.removeProperty('--sv-list-width');
+  });
+
   function toggleList() {
     root.classList.toggle('sv-list-hidden');
   }
@@ -198,6 +316,8 @@
   list.addEventListener('click', function (event) {
     var entry = event.target.closest('.sv-entry');
     if (entry) show(Number(entry.dataset.index));
+    var file = event.target.closest('.sv-file');
+    if (file) reveal(Number(file.dataset.file));
   });
   listToggle.addEventListener('click', toggleList);
   window.addEventListener('keydown', onKeyDown);
