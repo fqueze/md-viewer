@@ -38,6 +38,10 @@
 
 /* Toolbar */
 
+.dv-toolbar[hidden] {
+  display: none;
+}
+
 .dv-toolbar {
   display: flex;
   align-items: center;
@@ -359,21 +363,33 @@
   text-decoration: underline;
 }
 
-/* Author and date, on the message's header rather than in the toolbar: they
-   belong to the commit being read, not to the page. */
+/* The commit, its author and date, and the size of the diff, on the message's
+   bar rather than in the toolbar: they belong to the commit being read, not
+   to the page. */
+.dv-msg-sha {
+  font-family: var(--mono);
+  font-size: 0.78rem;
+  color: var(--fg-muted);
+}
+
 .dv-msg-header {
-  display: flex;
-  gap: 0.35rem;
   color: var(--fg-muted);
   font-size: 0.78rem;
 }
 
-.dv-msg-key::after {
-  content: ':';
-}
-
 .dv-msg-value {
   color: var(--fg);
+}
+
+/* The bar's pieces are text of different fonts and sizes, which line up on
+   their baseline rather than their middle. */
+.dv-message .dv-file-header {
+  align-items: baseline;
+}
+
+.dv-message .dv-summary {
+  margin-left: auto;
+  white-space: nowrap;
 }
 
 /* Side by side: deletions left, insertions right, each pair on one row.

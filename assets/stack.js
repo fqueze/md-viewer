@@ -17,6 +17,7 @@
   var reviewCount = review.querySelector('.sv-review-count');
   var copyAll = document.getElementById('sv-review-copy');
   var listToggle = document.getElementById('sv-list-toggle');
+  var layout = document.getElementById('sv-layout');
   var entries = list.querySelectorAll('.sv-entry');
   var fileLists = list.querySelectorAll('.sv-files-of');
   var commits = list.querySelector('.sv-commits');
@@ -31,6 +32,8 @@
   /** Comments on each commit so far, as its frame last reported them. */
   var counts = new Array(meta.length);
   var current = -1;
+  /** Side by side or not, once the reader has said; until then each page guesses. */
+  var chosenSplit = null;
 
   // ---------------------------------------------------------------------------
   // Frames
@@ -66,6 +69,12 @@
     });
     win.addEventListener('keydown', onKeyDown);
     track(win, doc, i);
+    applyLayout(i);
+    // A page picks its layout from its width until the reader picks one, and
+    // the switch up here shows what the current page picked.
+    win.addEventListener('resize', function () {
+      if (i === current) syncLayout();
+    });
     if (i === current) win.focus();
   }
 
@@ -134,6 +143,7 @@
       fileLists[j].hidden = j !== i;
     }
     current = i;
+    syncLayout();
     if (entries[i].scrollIntoView) entries[i].scrollIntoView({ block: 'nearest' });
     document.title = (meta[i].subject || meta[i].label) + ' — ' + root.dataset.title;
     // The hash is where the reader is, so a reload comes back to the same
@@ -157,6 +167,38 @@
     // Back to the page, so that the keys it listens for still reach it.
     frame.contentWindow.focus();
   }
+
+  // ---------------------------------------------------------------------------
+  // Layout
+  // ---------------------------------------------------------------------------
+
+  /**
+   * The layout switch of commit `i`'s page. Each page keeps its own, hidden,
+   * and the one in this page's bar drives them through it, so a page lays
+   * itself out exactly as it does when its own switch is flipped. A page that
+   * has not loaded yet has none.
+   */
+  function pageSwitch(i) {
+    var doc = frames[i] && frames[i].contentDocument;
+    return doc && doc.getElementById('dv-layout');
+  }
+
+  function syncLayout() {
+    var own = pageSwitch(current);
+    if (own) layout.checked = own.checked;
+  }
+
+  function applyLayout(i) {
+    var own = pageSwitch(i);
+    if (!own || chosenSplit === null) return;
+    own.checked = chosenSplit;
+    own.dispatchEvent(new Event('change'));
+  }
+
+  layout.addEventListener('change', function () {
+    chosenSplit = layout.checked;
+    for (var i = 0; i < frames.length; i++) applyLayout(i);
+  });
 
   function fromHash() {
     var n = parseInt(location.hash.slice(1), 10);

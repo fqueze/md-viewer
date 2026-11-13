@@ -13,6 +13,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { renderDiff, looksLikeDiff, splitCommitMessage } from '../lib/diff.js';
+import { buildDiffPage } from '../lib/diff-page.js';
 
 const TAB = String.fromCharCode(9);
 
@@ -530,4 +531,29 @@ test('an empty line of the message stays empty', () => {
     /data-msg-line="2"><span class="dv-num"><\/span><span class="dv-text"><\/span>/,
     'the blank line between subject and body is an empty span',
   );
+});
+
+test("a commit's bar names it, says who wrote it and when, and how large it is", () => {
+  const source =
+    'commit 23cff60a86a2c0ffee00c0ffee00c0ffee00c0ff\n' +
+    'Author: Florian Quèze <florian@queze.net>\n' +
+    'Date:   Mon Nov 9 09:10:13 2020 +0000\n\n' +
+    '    Bug 1 - A change, r=x.\n\n' +
+    'diff --git a/a b/a\n--- a/a\n+++ b/a\n@@ -1 +1 @@\n-x\n+y\n';
+  const rendered = renderDiff(source);
+  const bar = /<header class="dv-file-header">(.*?)<\/header>/.exec(rendered.html)[1];
+  const text = bar.replace(/<[^>]+>/g, '');
+  assert.match(text, /^23cff60a86a2Authored by Florian on Mon, Nov 9, 2020, \d+:10 [AP]M\./);
+  assert.match(text, /1 file changed\+1−1$/);
+  assert.match(bar, /title="Florian Quèze &lt;florian@queze.net&gt;"/);
+  assert.equal(rendered.commit, true);
+});
+
+test("a commit's page leaves the toolbar to the switch, and a loose diff's says what it is", async () => {
+  const toolbar = (html) => /<div class="dv-toolbar"[^>]*>([^]*?)<label/.exec(html)[1].trim();
+  const loose = 'diff --git a/a b/a\n--- a/a\n+++ b/a\n@@ -1 +1 @@\n-x\n+y\n';
+  assert.match(toolbar(await buildDiffPage(loose, { title: 'x.diff' })), /x\.diff[^]*1 file changed/);
+  const commit = 'commit 23cff60a86a2\nAuthor: A <a@b>\n\n    Subject\n\n' + loose;
+  assert.equal(toolbar(await buildDiffPage(commit, { title: '23cff60a86a2', subtitle: 'Subject' })), '');
+  assert.match(await buildDiffPage(commit, { title: 't', embedded: true }), /<div class="dv-toolbar" hidden>/);
 });

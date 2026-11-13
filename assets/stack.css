@@ -98,6 +98,21 @@
   display: none;
 }
 
+/* The layout switch of every commit's page, in the corner of the bar. */
+.sv-layout {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  color: var(--fg-muted);
+  white-space: nowrap;
+  user-select: none;
+  cursor: pointer;
+}
+
+.sv-review[hidden] + .sv-layout {
+  margin-left: auto;
+}
+
 .sv-review-copy {
   padding: 0.2rem 0.7rem;
   font: inherit;
