@@ -309,6 +309,11 @@
   text-decoration: none;
 }
 
+.dv-line-msg a.dv-bug:visited,
+.dv-line-msg a.dv-url:visited {
+  color: var(--link-visited);
+}
+
 .dv-line-msg a.dv-bug:hover,
 .dv-line-msg a.dv-url:hover {
   text-decoration: underline;
