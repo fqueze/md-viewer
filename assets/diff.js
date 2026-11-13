@@ -59,6 +59,21 @@
   });
 
   // ---------------------------------------------------------------------------
+  // Copying a file's path
+  // ---------------------------------------------------------------------------
+
+  document.addEventListener('click', function (event) {
+    var button = event.target.closest('.dv-copy-path');
+    if (!button) return;
+    navigator.clipboard.writeText(button.dataset.copy).then(function () {
+      button.classList.add('dv-copied');
+      setTimeout(function () {
+        button.classList.remove('dv-copied');
+      }, 1000);
+    });
+  });
+
+  // ---------------------------------------------------------------------------
   // Where a comment landed
   // ---------------------------------------------------------------------------
 
