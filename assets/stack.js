@@ -95,7 +95,8 @@
     function update() {
       pending = false;
       var n = 0;
-      while (n < sections.length - 1 && sections[n].getBoundingClientRect().bottom <= 0) n++;
+      // A pixel's grace, for a scroll position rounded to the device's pixels.
+      while (n < sections.length - 1 && sections[n].getBoundingClientRect().bottom <= 1) n++;
       if (n === shown) return;
       shown = n;
       for (var k = 0; k < buttons.length; k++) {
@@ -163,9 +164,13 @@
     // A frame that has not loaded yet has no sections to scroll to.
     var section = frame.contentDocument && frame.contentDocument.getElementById('dv-file-' + n);
     if (!section) return;
-    section.scrollIntoView({ block: 'start' });
+    // Flush with the top, not scrollIntoView: the page keeps a scroll padding
+    // for its own links, which here would leave the end of the file before it
+    // in view, and that file would then be the one marked as being read.
+    var win = frame.contentWindow;
+    win.scrollTo(0, win.scrollY + section.getBoundingClientRect().top);
     // Back to the page, so that the keys it listens for still reach it.
-    frame.contentWindow.focus();
+    win.focus();
   }
 
   // ---------------------------------------------------------------------------
