@@ -280,20 +280,22 @@
   // ---------------------------------------------------------------------------
 
   /**
-   * Alt+Up and Alt+Down step through the stack, Alt+L hides the list. Alt
-   * rather than bare letters, because a commit's page turns the first letter
-   * typed after a selection into the start of a comment; and not while a text
-   * field has the focus, where Alt+arrow moves the caret by a word.
+   * Alt+Up and Alt+Down step through the stack, and so do Shift+Up and
+   * Shift+Down, which leave the bare arrows to scroll the diff; Alt+L hides
+   * the list. Modifiers rather than bare letters, because a commit's page
+   * turns the first letter typed after a selection into the start of a
+   * comment; and not while a text field has the focus, where these move and
+   * extend the caret.
    */
   function onKeyDown(event) {
-    if (!event.altKey || event.metaKey || event.ctrlKey || event.shiftKey) return;
+    if (event.altKey === event.shiftKey || event.metaKey || event.ctrlKey) return;
     var target = event.target;
     if (target && target.closest && target.closest('textarea, input, [contenteditable]')) return;
     if (event.key === 'ArrowDown') {
       show(current + 1);
     } else if (event.key === 'ArrowUp') {
       show(current - 1);
-    } else if (event.key === 'l' || event.key === 'L' || event.code === 'KeyL') {
+    } else if (event.altKey && (event.key === 'l' || event.key === 'L' || event.code === 'KeyL')) {
       toggleList();
     } else {
       return;

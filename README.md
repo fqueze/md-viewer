@@ -365,7 +365,7 @@ Or pass --max-commits 4953 to build it anyway.
 
 A list down the left names the commits oldest first, by change id and subject,
 with the lines each adds and removes. Click one to read it, or step through
-them with `Alt+↑` and `Alt+↓`; `Alt+L` and the `☰` button hide the list, which
+them with `Alt+↑` and `Alt+↓` or `Shift+↑` and `Shift+↓`; `Alt+L` and the `☰` button hide the list, which
 gives a side-by-side diff the width back. The URL's `#n` records which commit
 is open, so a reload comes back to it.
 

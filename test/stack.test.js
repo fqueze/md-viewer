@@ -392,6 +392,11 @@ test('the list switches commits, and the hash remembers which', async () => {
   assert.equal(window.location.hash, '#2');
   window.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'ArrowDown', altKey: true, bubbles: true }));
   assert.equal(window.location.hash, '#2', 'the last commit is the end');
+  // Shift+Up does the same, and Alt and Shift together do neither.
+  window.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'ArrowUp', altKey: true, shiftKey: true, bubbles: true }));
+  assert.equal(window.location.hash, '#2');
+  window.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'ArrowUp', shiftKey: true, bubbles: true }));
+  assert.equal(window.location.hash, '#1');
 
   // The review across the stack is hidden until a commit has a comment.
   assert.equal(document.getElementById('sv-review').hidden, true);
