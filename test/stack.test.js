@@ -438,3 +438,15 @@ test('the files of the current commit are listed as a tree, and lead to their se
   document.querySelector('.sv-entry').click();
   assert.deepEqual([...lists].map((list) => list.hidden), [false, true], 'the list follows the commit');
 });
+
+test("a commit's Phabricator revision is shown beside its id", async () => {
+  const submitted = commit(SHA2, 'submitted', 'x', 'y').replace(
+    '    Explains itself.\n',
+    '    Explains itself.\n\n    Differential Revision: https://phabricator.services.mozilla.com/D342378\n',
+  );
+  const patches = [PATCHES[0], { sha: SHA2, label: 'psmyywvy', source: submitted }];
+  const html = await buildStackPage(patches, { title: 't', where: '/src/repo' });
+  const { document } = new JSDOM(html).window;
+  const ids = [...document.querySelectorAll('.sv-entry-id')].map((id) => id.textContent);
+  assert.deepEqual(ids, ['kxwptuls', 'D342378 psmyywvy']);
+});

@@ -256,16 +256,19 @@
   list-style: none;
 }
 
+/* The number, id, comment count and line counts share the first line, and the
+   subject has the whole width below them: it is what the reader reads, and
+   the rest is only there to be glanced at. */
 .sv-entry {
   display: grid;
-  grid-template-columns: 1.6rem 1fr auto;
+  grid-template-columns: auto 1fr auto auto;
   grid-template-areas:
-    "n id comments"
-    "n subject subject"
-    "n stats stats";
-  column-gap: 0.4rem;
+    "n id comments stats"
+    "subject subject subject subject";
+  align-items: baseline;
+  column-gap: 0.5rem;
   width: 100%;
-  padding: 0.45rem 0.7rem 0.45rem 0.5rem;
+  padding: 0.45rem 0.7rem;
   font: inherit;
   font-size: 0.8rem;
   line-height: 1.4;
@@ -275,6 +278,13 @@
   border: 0;
   border-left: 3px solid transparent;
   cursor: pointer;
+}
+
+/* Every other commit on a lighter ground, as Phabricator lists them, so a row
+   is easy to follow across. On the item rather than the button, so that the
+   hover and the current commit's tint still show over it. */
+.sv-commits li:nth-child(even) {
+  background: var(--bg);
 }
 
 .sv-entry:hover {
@@ -298,8 +308,6 @@
   grid-area: n;
   color: var(--fg-muted);
   font-size: 0.7rem;
-  text-align: right;
-  padding-top: 0.15em;
 }
 
 .sv-entry-id {
@@ -307,6 +315,11 @@
   font-family: var(--mono);
   font-size: 0.75rem;
   color: var(--fg-muted);
+}
+
+.sv-entry-rev {
+  font-weight: 600;
+  color: var(--fg);
 }
 
 .sv-entry-subject {
@@ -320,8 +333,8 @@
   font-size: 0.72rem;
 }
 
-.sv-entry-stat {
-  margin-right: 0.5em;
+.sv-entry-stat + .sv-entry-stat {
+  margin-left: 0.5em;
 }
 
 .sv-entry-empty {
