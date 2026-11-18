@@ -477,6 +477,12 @@ mark.mdv-mark:hover {
   background: color-mix(in srgb, #f5c518 65%, transparent);
 }
 
+/* A comment the program driving the page has taken: still marked, quieter. */
+mark.mdv-mark.mdv-mark-sent {
+  background: color-mix(in srgb, var(--fg-muted) 16%, transparent);
+  border-bottom-color: var(--fg-muted);
+}
+
 mark.mdv-mark-pending {
   background: color-mix(in srgb, var(--link) 22%, transparent);
   border-bottom-color: var(--link);

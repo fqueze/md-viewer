@@ -39,7 +39,8 @@ Options:
       --no-open     Print the URL instead of launching a browser.
       --annotations <file>
                     Show what a program says about the commits: a status,
-                    links, controls and sections (see the README).
+                    links, controls, sections and earlier comments (see the
+                    README).
       --max-commits <n>
                     Build at most this many commits (default ${MAX_STACK_COMMITS}).
   -h, --help        Show this help.

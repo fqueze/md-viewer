@@ -569,14 +569,27 @@
   background: color-mix(in srgb, var(--bg-subtle) 50%, var(--bg));
 }
 
+/* Each pair of lines takes a row, and the two after it are free for the
+   comments shown after either line, the deletion's then the insertion's,
+   each across both columns, so that both versions' gutters run through
+   them; a row with nothing in it has no height. */
 .dv-split .dv-block .dv-line-del {
   grid-column: 1;
-  grid-row: var(--dv-row);
+  grid-row: calc(var(--dv-row) * 3 - 2);
 }
 
 .dv-split .dv-block .dv-line-add {
   grid-column: 2;
-  grid-row: var(--dv-row);
+  grid-row: calc(var(--dv-row) * 3 - 2);
+}
+
+.dv-split .dv-block .mdv-threads {
+  grid-column: 1 / -1;
+  grid-row: calc(var(--dv-row) * 3);
+}
+
+.dv-split .dv-block .mdv-threads[data-side='old'] {
+  grid-row: calc(var(--dv-row) * 3 - 1);
 }
 
 .dv-split .dv-line {
@@ -612,6 +625,508 @@
 /* Review marks sit inside the code cells, so they inherit the mono font. */
 #mdv-content mark.mdv-mark {
   padding: 0;
+}
+
+/* ---------------------------------------------------------------------------
+   Earlier comments, as threads after the line they were made on.
+
+   Prose in the body font, whatever box they sit in, and asides: the text the
+   reader comments on is the commit's, not these.
+   --------------------------------------------------------------------------- */
+
+/* In a file's diff, the threads after a line keep its columns, as on
+   Phabricator: the line numbers' gutters run through them, and the threads
+   sit in the code's column, side by side in the column of the version they
+   are on. The gutters are drawn as the background, in the code's font, which
+   is what their width is counted in. */
+.dv-files .mdv-threads {
+  --dv-g: var(--dv-gutter);
+  padding: 0.45rem 0.75rem 0.45rem calc(var(--dv-g) * 2 + 1.4em);
+  font-family: var(--mono);
+  font-size: 0.8125rem;
+  background: linear-gradient(
+    to right,
+    var(--bg-subtle) 0 calc(var(--dv-g) - 1px),
+    var(--border-subtle) calc(var(--dv-g) - 1px) var(--dv-g),
+    var(--bg-subtle) var(--dv-g) calc(var(--dv-g) * 2 - 1px),
+    var(--border-subtle) calc(var(--dv-g) * 2 - 1px) calc(var(--dv-g) * 2),
+    var(--bg) calc(var(--dv-g) * 2)
+  );
+  border: 0;
+}
+
+.dv-split .dv-files .mdv-threads {
+  padding-left: calc(50% + var(--dv-g) + 1.4em);
+  background: linear-gradient(
+    to right,
+    var(--bg-subtle) 0 calc(var(--dv-g) - 1px),
+    var(--border-subtle) calc(var(--dv-g) - 1px) var(--dv-g),
+    var(--bg) var(--dv-g) 50%,
+    var(--border) 50% calc(50% + 1px),
+    var(--bg-subtle) calc(50% + 1px) calc(50% + var(--dv-g) - 1px),
+    var(--border-subtle) calc(50% + var(--dv-g) - 1px) calc(50% + var(--dv-g)),
+    var(--bg) calc(50% + var(--dv-g))
+  );
+}
+
+.dv-split .dv-files .mdv-threads[data-side='old'] {
+  padding-left: calc(var(--dv-g) + 1.4em);
+  padding-right: calc(50% + 0.75rem);
+}
+
+.dv-files .mdv-threads > * {
+  font-family: var(--sans);
+  font-size: 0.85rem;
+}
+
+.mdv-threads {
+  padding: 0.45rem 0.75rem;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans", Helvetica, Arial, sans-serif;
+  font-size: 0.85rem;
+  line-height: 1.5;
+  white-space: normal;
+  background: var(--bg-subtle);
+  border-top: 1px solid var(--border-subtle);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+/* The comments on no line shown here, between the message and the files, as
+   Phabricator's timeline shows them: an entry per author and time, its head
+   saying who and when, then each place they were on, a row per comment, its
+   line in a gutter. */
+.mdv-earlier {
+  margin-bottom: 1.5rem;
+}
+
+.mdv-earlier-entry {
+  margin: 0.6rem 0;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  overflow: clip;
+  font-size: 0.85rem;
+}
+
+/* What happened to the commit, a line with no box. */
+.mdv-history {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  margin: 0.5rem 0;
+  padding: 0 0.75rem;
+  font-size: 0.85rem;
+  color: var(--fg-muted);
+}
+
+.mdv-history-did {
+  white-space: pre-wrap;
+}
+
+.mdv-history-icon {
+  flex: none;
+  width: 1.3rem;
+  height: 1.3rem;
+  margin-right: 0.5rem;
+  border-radius: 3px;
+  background: var(--fg-muted);
+  position: relative;
+}
+
+.mdv-history-icon::after {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-size: 0.8rem;
+  font-weight: 700;
+  content: '•';
+}
+
+.mdv-history-accept .mdv-history-icon {
+  background: var(--accent);
+}
+
+.mdv-history-accept .mdv-history-icon::after {
+  content: '✓';
+}
+
+.mdv-history-request-changes .mdv-history-icon {
+  background: var(--danger);
+}
+
+.mdv-history-request-changes .mdv-history-icon::after {
+  content: '↩';
+}
+
+.mdv-history-update .mdv-history-icon {
+  background: var(--link);
+}
+
+.mdv-history-update .mdv-history-icon::after {
+  content: '↻';
+}
+
+.mdv-earlier-head {
+  display: flex;
+  align-items: baseline;
+  padding: 0.45rem 0.75rem;
+  color: var(--fg-muted);
+  background: var(--bg-subtle);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.mdv-earlier-who {
+  font-weight: 600;
+  color: var(--fg);
+}
+
+.mdv-earlier-did {
+  white-space: pre;
+}
+
+.mdv-earlier-when {
+  margin-left: auto;
+  font-size: 0.78rem;
+}
+
+.mdv-earlier-group {
+  padding: 0.5rem 0.75rem;
+}
+
+.mdv-earlier-where {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding-bottom: 0.35rem;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.mdv-earlier-path {
+  font-family: var(--mono);
+  font-size: 0.8rem;
+}
+
+.mdv-earlier-path::before {
+  content: '';
+  flex: none;
+  width: 0.85rem;
+  height: 0.85rem;
+  background: var(--fg-muted);
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='black' stroke-width='1.2' stroke-linejoin='round'%3E%3Cpath d='M3.5 1.5h6l3 3v10h-9z'/%3E%3Cpath d='M9.5 1.5v3h3'/%3E%3C/svg%3E") center / contain no-repeat;
+}
+
+.mdv-earlier .mdv-threads {
+  padding: 0;
+  font-size: inherit;
+  border: 0;
+  background: none;
+}
+
+/* A row: the line, the text, the state on the right; under the text, a draft
+   reply and the controls. */
+.mdv-earlier .mdv-thread {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  grid-template-areas: 'body end' 'more more';
+  max-width: none;
+  margin: 0;
+  background: none;
+  border: 0;
+  border-radius: 0;
+}
+
+.mdv-earlier .mdv-thread + .mdv-thread {
+  border-top: 1px solid var(--border-subtle);
+}
+
+.mdv-earlier .mdv-thread-lined {
+  grid-template-columns: 6rem 1fr auto;
+  grid-template-areas: 'line body end' 'line more more';
+}
+
+.mdv-thread-line {
+  grid-area: line;
+  padding: 0.35rem 0.6rem;
+  font-size: 0.78rem;
+  color: var(--fg-muted);
+  background: var(--bg-subtle);
+  border-right: 1px solid var(--border-subtle);
+}
+
+.mdv-earlier .mdv-thread-head {
+  grid-area: end;
+  align-self: start;
+  padding: 0.3rem 0 0 0.75rem;
+  background: none;
+  border: 0;
+}
+
+.mdv-earlier .mdv-thread-body {
+  grid-area: body;
+  padding: 0.35rem 0.75rem;
+}
+
+.mdv-earlier .mdv-thread-more {
+  grid-area: more;
+}
+
+.dv-msg-table .mdv-threads,
+.dv-section-body .mdv-threads {
+  margin: 0.3rem 0;
+  border: 1px solid var(--border-subtle);
+  border-radius: 3px;
+}
+
+.mdv-thread {
+  max-width: 62rem;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-left: 3px solid #d4a72c;
+  border-radius: 4px;
+}
+
+.mdv-thread + .mdv-thread {
+  margin-top: 0.4rem;
+}
+
+/* Dealt with: quieter, its text greyed, as Phabricator shows a done comment. */
+.mdv-thread:not(.mdv-thread-open) {
+  border-left-color: var(--border);
+}
+
+.mdv-thread:not(.mdv-thread-open) .mdv-thread-body {
+  color: var(--fg-muted);
+}
+
+.mdv-thread-outdated {
+  border-left-style: dashed;
+}
+
+.mdv-thread-head {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.35rem 0.75rem;
+  background: var(--bg-subtle);
+  border-bottom: 1px solid var(--border-subtle);
+  border-radius: 4px 4px 0 0;
+}
+
+.mdv-thread-head > * {
+  white-space: nowrap;
+}
+
+.mdv-thread-author {
+  font-weight: 600;
+}
+
+.mdv-thread-date {
+  color: var(--fg-muted);
+  font-size: 0.78rem;
+}
+
+.mdv-thread-older {
+  font-size: 0.78rem;
+  color: var(--fg-muted);
+}
+
+/* The lines an outdated comment was made on, greyed, as Phabricator quotes them. */
+.mdv-thread-context {
+  padding: 0.35rem 0.75rem;
+  font-family: var(--mono);
+  font-size: 0.78rem;
+  color: var(--fg-muted);
+  background: var(--bg-subtle);
+  border-bottom: 1px solid var(--border-subtle);
+  white-space: pre;
+  overflow-x: auto;
+}
+
+.mdv-thread-context-n {
+  display: inline-block;
+  min-width: 3em;
+  margin-right: 0.75em;
+  text-align: right;
+  user-select: none;
+}
+
+.mdv-thread-context-here {
+  color: var(--fg);
+}
+
+.mdv-thread-sent {
+  font-size: 0.72rem;
+  color: var(--fg-muted);
+  font-style: italic;
+}
+
+/* The source and the state, on the right. */
+.mdv-thread-end {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-left: auto;
+}
+
+#mdv-content .mdv-thread-source {
+  font-size: 0.78rem;
+}
+
+.mdv-thread-state {
+  font-size: 0.8rem;
+  color: var(--fg-muted);
+}
+
+.mdv-thread-done .mdv-thread-state,
+.mdv-thread-addressed .mdv-thread-state {
+  color: var(--link);
+}
+
+/* Reply, a link in the head. */
+.mdv-thread-head button.mdv-respond-reply {
+  padding: 0;
+  font-size: 0.8rem;
+  color: var(--link);
+  background: none;
+  border: 0;
+}
+
+.mdv-thread-head button.mdv-respond-reply:hover {
+  text-decoration: underline;
+}
+
+.mdv-thread-head button.mdv-respond-reply:disabled {
+  color: var(--fg-muted);
+  text-decoration: none;
+  cursor: default;
+}
+
+/* Done, as a button holding its checkbox. */
+.mdv-thread-head label.mdv-respond-done {
+  padding: 0.05rem 0.55rem;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+}
+
+.mdv-thread-done .mdv-thread-head label.mdv-respond-done {
+  color: var(--link);
+  border-color: var(--link);
+}
+
+.mdv-thread-body {
+  padding: 0.45rem 0.75rem;
+  overflow-wrap: anywhere;
+}
+
+/* An answer the comment got, under it. */
+.mdv-thread-reply {
+  margin: 0 0.75rem 0.45rem;
+  padding: 0.3rem 0.6rem;
+  border-left: 3px solid var(--border);
+  overflow-wrap: anywhere;
+}
+
+.mdv-thread-reply-head {
+  display: flex;
+  align-items: baseline;
+  gap: 0.6rem;
+}
+
+#mdv-content .mdv-thread-reply-body p,
+#mdv-content .mdv-thread-reply-body ul {
+  margin: 0.2rem 0;
+}
+
+.mdv-thread-draft {
+  margin: 0 0.75rem 0.45rem;
+  padding: 0.3rem 0.6rem;
+  border-left: 3px solid var(--accent);
+  background: color-mix(in srgb, var(--accent) 6%, transparent);
+  overflow-wrap: anywhere;
+}
+
+.mdv-thread-draft-head {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--fg-muted);
+}
+
+#mdv-content .mdv-thread-body p,
+#mdv-content .mdv-thread-body ul,
+#mdv-content .mdv-thread-body ol,
+#mdv-content .mdv-thread-body pre,
+#mdv-content .mdv-thread-body blockquote {
+  margin: 0.3rem 0;
+}
+
+.mdv-thread-body pre {
+  padding: 0.4rem 0.6rem;
+  font-family: var(--mono);
+  font-size: 0.8rem;
+  white-space: pre-wrap;
+  background: var(--bg-subtle);
+  border-radius: 3px;
+}
+
+.mdv-thread-body code {
+  font-family: var(--mono);
+  font-size: 0.85em;
+}
+
+.mdv-thread-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0 0.75rem 0.5rem;
+}
+
+.mdv-respond {
+  font: inherit;
+  font-size: 0.8rem;
+}
+
+button.mdv-respond {
+  padding: 0.05rem 0.6rem;
+  color: var(--fg);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+button.mdv-respond:hover {
+  border-color: var(--fg-muted);
+}
+
+button.mdv-respond[aria-pressed='true'] {
+  color: var(--bg);
+  background: var(--fg);
+  border-color: var(--fg);
+}
+
+label.mdv-respond {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  cursor: pointer;
+  user-select: none;
+}
+
+.mdv-reply {
+  flex-basis: 100%;
+  width: 100%;
+  padding: 0.4rem 0.5rem;
+  font: inherit;
+  color: var(--fg);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  resize: vertical;
 }
 
 /* ---------------------------------------------------------------------------

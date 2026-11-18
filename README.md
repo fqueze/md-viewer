@@ -488,8 +488,52 @@ links and the controls change in place, and text being typed into a control
 is kept. In stack-viewer the call reaches a commit's page whether or not it
 has been opened yet. It returns whether the sha named a commit there.
 
+- `comments` are the comments already made on the commit — on Phabricator,
+  by an agent, by you on an earlier version — each shown as a thread after
+  the line it was made on:
+
+  ```json
+  {
+    "id": "c-1",
+    "anchor": { "file": "dom/base/Foo.cpp", "line": [12, 15], "side": "new" },
+    "author": "smaug (Phabricator)", "date": "2026-11-17T09:00:00Z",
+    "body": "markdown", "sourceUrl": "https://phabricator…",
+    "outdated": false, "context": [{ "n": 12, "text": "code", "here": true }], "state": "open",
+    "responses": ["address", "reply", "ignore"], "draftReply": "markdown",
+    "replies": [{ "author": "its author", "date": "2026-11-17T10:00:00Z", "body": "markdown" }]
+  }
+  ```
+
+  `anchor` is as below for new comments; a range is shown after its last
+  line. A comment that is `outdated`, made on lines that changed since, is
+  still shown on the line its `anchor` gives (a program places it near where
+  they were), saying it was made on an earlier version, with `context`, the
+  lines it was made on (`[{ "n", "text", "here" }]`), quoted. One on a line
+  the diff does not show, or on a file it no longer has, is shown between the message and the files as
+  Phabricator's timeline shows comments: an entry per author and time, its
+  head saying who and when, then each place they were on (the file, the
+  commit message, a section), a row per comment with its line in a gutter. One whose `state` is not `open` — `done`,
+  `addressed`, `ignored` — has its text greyed and its state on the right of
+  its head, as Phabricator shows a done comment.
+  The body is read as the markdown comments use — paragraphs, lists, quotes,
+  code, links, emphasis — and HTML in it is shown as text.
+
+- `history` is what happened to the commit, each `{ "date", "author",
+  "action", "kind" }` — `kind` one of `accept`, `request-changes`, `update`,
+  `comment` for its icon — drawn as Phabricator's timeline draws a
+  revision's actions: a line each, "author action" with the date, among the
+  earlier comments' entries in the order of their dates.
+
+  `replies`, the answers the comment got, are shown under it, each with who
+  and when. `responses` are the controls offered: `done` is a checkbox on the right of
+  the head, in place of the state (offer it only where the reader may mark the
+  comment done), `address` and
+  `ignore` are toggles, pressed only by the reader's own response (pressing
+  Address on a comment that came `addressed` asks for it again), and `reply` opens a text box holding `draftReply`, the
+  program's suggested answer, to send as it is or rewrite.
+
 Sections are drawn with the page, so a later annotation redraws everything
-but them.
+but them. Responses made survive a redraw.
 
 ### Reading the review back
 
@@ -506,6 +550,20 @@ saying where it is:
 { file: '(commit)', line: 3 }              // the commit message, counting its lines
 { file: '(section:test-plan)', line: 7 }   // a section, counting lines of its markdown
 ```
+
+`mdvReviewResponses()` returns what you did to the earlier comments since the
+page loaded, the latest per comment: `{ id, response, text }`, with
+`response` one of `done`, `address`, `ignore`, `reply`, or `reopen` for one
+that came done and was unchecked. Unchecking done on a comment that didn't
+come done is no response at all. `text` is the reply, when one has
+been written, and goes with whichever response was chosen last, so that
+marking a comment done after answering it keeps the answer.
+
+Once it has taken them, the program calls `mdvReviewMarkSent(ids)` with the
+ids of the comments and the responses it sent. They stay on the page, drawn
+as sent and read-only, and `mdvReviewComments()`, `mdvReviewEntries()`,
+`mdvReviewResponses()` and the `Copy review` pills leave them out from then
+on, so that sending again sends only what is new.
 
 `diff-viewer` reads the commit from the `commit <sha>` line `git show` puts at
 the top of a patch; a diff without one takes the file's commit if it names

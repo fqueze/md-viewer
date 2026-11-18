@@ -26,8 +26,14 @@
    * `textAnchor` is where the comment sits in the text, as below; `anchor` is
    * where it sits in the document's own terms — a file and a line — when the
    * page can say, which is what a program reading the comments back wants.
+   *
+   * `sent` is set once the program driving the page has taken the comment
+   * (see mdvReviewMarkSent): it stays on the page, read-only, and is left
+   * out of everything that reads comments out, so that sending again sends
+   * only what is new.
    * @type {{id: string, text: string, textAnchor: object, anchor: object|null,
-   *   quote: string, line: number|null, place: object|null, scope: string|null}[]}
+   *   quote: string, line: number|null, place: object|null, scope: string|null,
+   *   sent?: boolean}[]}
    */
   var comments = [];
   var pending = null;
@@ -424,7 +430,9 @@
 
     if (id) {
       var comment = find(id);
-      if (!text) {
+      if (comment && comment.sent) {
+        // Sent is final: the box only showed it.
+      } else if (!text) {
         remove(id);
       } else if (comment && comment.text !== text) {
         comment.text = text;
@@ -451,10 +459,12 @@
     if (id) box.dataset.commentId = id;
     box.innerHTML =
       '<textarea rows="3" placeholder="Comment on the selected text…"></textarea>' +
-      '<div class="mdv-review-hint"><span>↵ save</span>' +
-      '<span>⇧↵ newline</span>' +
-      (comment ? '<span>empty ↵ delete</span>' : '<span>esc cancel</span>') +
-      '</div>';
+      (comment && comment.sent
+        ? '<div class="mdv-review-hint"><span>sent</span></div>'
+        : '<div class="mdv-review-hint"><span>↵ save</span>' +
+          '<span>⇧↵ newline</span>' +
+          (comment ? '<span>empty ↵ delete</span>' : '<span>esc cancel</span>') +
+          '</div>');
 
     var rect = anchorElement.getBoundingClientRect();
     box.style.top = rect.bottom + window.scrollY + 8 + 'px';
@@ -469,6 +479,7 @@
 
     var textarea = box.querySelector('textarea');
     textarea.value = comment ? comment.text : '';
+    textarea.readOnly = Boolean(comment && comment.sent);
     textarea.addEventListener('keydown', function (event) {
       if (event.key === 'Enter' && !event.shiftKey) {
         event.preventDefault();
@@ -603,8 +614,15 @@
     pending = null;
   }
 
+  /** The comments the program has not taken yet, which are the review. */
+  function unsent() {
+    return comments.filter(function (comment) {
+      return !comment.sent;
+    });
+  }
+
   function render() {
-    var total = comments.length;
+    var total = unsent().length;
     bar.hidden = total === 0;
     count.textContent = total + (total === 1 ? ' comment' : ' comments');
     // A page that embeds this one — stack-viewer shows one of these per commit
@@ -630,7 +648,8 @@
       // The line may have moved with the edit that triggered the reload.
       var line = lineOf(range.startContainer);
       if (line) comment.line = line;
-      highlight(range, comment.id, test);
+      var marks = highlight(range, comment.id, test);
+      if (comment.sent) markSent(marks);
     }
     render();
   }
@@ -742,12 +761,13 @@
   function prompt(file) {
     // A diff spans many files and has no single subject, so it writes its own
     // preamble and entries; a markdown document keeps the wording below.
-    if (window.mdvReviewPrompt) return window.mdvReviewPrompt(comments);
+    var review = unsent();
+    if (window.mdvReviewPrompt) return window.mdvReviewPrompt(review);
 
     var name = file.split('/').pop();
     var lines = ['Please address these review comments on ' + file + ':', ''];
-    for (var i = 0; i < comments.length; i++) {
-      var comment = comments[i];
+    for (var i = 0; i < review.length; i++) {
+      var comment = review[i];
       var where = comment.line ? name + ':' + comment.line : name;
       lines.push('- ' + where + ' — "' + comment.quote + '"');
       lines.push('  ' + comment.text.replace(/\n/g, '\n  '));
@@ -770,7 +790,7 @@
 
   copy.addEventListener('click', function () {
     commitBox();
-    if (!comments.length) return;
+    if (!unsent().length) return;
     navigator.clipboard.writeText(prompt(document.getElementById('mdv-root').dataset.file)).then(
       function () {
         flash(copy, 'Copied');
@@ -815,6 +835,33 @@
    */
   window.mdvReviewComments = function () {
     commitBox();
-    return comments.slice();
+    return unsent();
+  };
+
+  /** Draw marks as a sent comment's: still there, no longer being written. */
+  function markSent(marks) {
+    for (var i = 0; i < marks.length; i++) {
+      marks[i].classList.add('mdv-mark-sent');
+      marks[i].title = 'Sent';
+    }
+  }
+
+  /**
+   * The program driving the page has taken these comments: they stay where
+   * they are, read-only and drawn as sent, and leave the review, so that the
+   * next send has only what was written since. Ids that are not comments are
+   * someone else's — annotate.js wraps this for the responses it holds.
+   */
+  window.mdvReviewMarkSent = function (ids) {
+    commitBox();
+    var wanted = {};
+    for (var i = 0; i < (ids || []).length; i++) wanted[ids[i]] = true;
+    for (var j = 0; j < comments.length; j++) {
+      var comment = comments[j];
+      if (!wanted[comment.id] || comment.sent) continue;
+      comment.sent = true;
+      markSent(article.querySelectorAll('mark.mdv-mark[data-comment-id="' + comment.id + '"]'));
+    }
+    render();
   };
 })();

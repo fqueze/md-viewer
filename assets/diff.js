@@ -312,6 +312,11 @@
   window.mdvReviewEntries = entries;
 
   function entries(comments) {
+    // A comment already sent is not part of the review any more, however it
+    // was handed in.
+    comments = Array.prototype.filter.call(comments, function (comment) {
+      return !comment.sent;
+    });
     var out = [];
     for (var i = 0; i < comments.length; i++) {
       var comment = comments[i];
