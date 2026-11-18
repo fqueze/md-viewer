@@ -21,6 +21,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { MAX_STACK_COMMITS, findStackRepository, openStack, readStack } from './lib/stack.js';
 import { buildStackPage } from './lib/stack-page.js';
+import { readAnnotations } from './lib/annotations.js';
 import { serveOnce, writeStandalone } from './lib/serve-once.js';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
@@ -36,6 +37,9 @@ Options:
   -o, --output <f>  Write a standalone HTML file instead of serving it.
   -p, --port <n>    Listen on this port instead of a random free one.
       --no-open     Print the URL instead of launching a browser.
+      --annotations <file>
+                    Show what a program says about the commits: a status,
+                    links and controls (see the README).
       --max-commits <n>
                     Build at most this many commits (default ${MAX_STACK_COMMITS}).
   -h, --help        Show this help.
@@ -61,6 +65,7 @@ function parseArgs(argv) {
     output: null,
     port: Number(process.env.STACK_VIEWER_PORT) || 0,
     open: true,
+    annotations: null,
     maxCommits: MAX_STACK_COMMITS,
   };
 
@@ -88,6 +93,10 @@ function parseArgs(argv) {
         break;
       case '--no-open':
         options.open = false;
+        break;
+      case '--annotations':
+        options.annotations = argv[++i];
+        if (!options.annotations) fail('--annotations needs a file name');
         break;
       case '-R':
       case '--repo':
@@ -166,6 +175,16 @@ async function tooLong(stack, options, count) {
 async function main() {
   const options = parseArgs(process.argv.slice(2));
 
+  // Read first, so that a bad file is reported before any git work is done.
+  let annotations = null;
+  if (options.annotations) {
+    try {
+      annotations = await readAnnotations(options.annotations);
+    } catch (error) {
+      fail(error.message);
+    }
+  }
+
   const found = findStackRepository(options.repo);
   if (!found) {
     fail(`${options.repo} is not inside a jj or git repository`);
@@ -200,7 +219,7 @@ async function main() {
     fail(`cannot read the commits: ${error.message}`);
   }
 
-  const document = await buildStackPage(patches, { title, where: stack.root });
+  const document = await buildStackPage(patches, { title, where: stack.root, annotations });
   if (options.output) {
     await writeStandalone(document, { ...options, tool: 'stack-viewer' });
   } else {

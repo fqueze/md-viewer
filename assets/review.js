@@ -515,6 +515,10 @@
     }
     function onKeyDown(event) {
       if (document.activeElement === textarea) return;
+      // Typing into some other field on the page — a control the program
+      // driving it added — is writing there, not here.
+      var target = event.target;
+      if (target && target.closest && target.closest('input, textarea, [contenteditable]')) return;
       if (event.metaKey || event.ctrlKey || event.altKey) {
         // A shortcut belongs to the browser, and copying the selection is the
         // whole reason the focus is still out here — except paste, which says

@@ -73,6 +73,12 @@
   font-size: 0.8rem;
 }
 
+.sv-title-named {
+  font-family: inherit;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
 .sv-title-where {
   color: var(--fg-muted);
   opacity: 0.8;
@@ -291,7 +297,6 @@
   color: var(--fg);
   background: none;
   border: 0;
-  border-left: 3px solid transparent;
   cursor: pointer;
 }
 
@@ -307,11 +312,11 @@
 }
 
 /* The commit being read. A white row against the list's grey was too quiet to
-   find at a glance, so it is tinted, bordered and set in bold: the reader
-   comes back to the list to see where they are before they see anything else. */
+   find at a glance, so it is tinted and its id in the link colour: the reader
+   comes back to the list to see where they are before they see anything else.
+   Its left edge is left to its status. */
 .sv-entry[aria-current='true'] {
   background: color-mix(in srgb, var(--link) 20%, var(--bg));
-  border-left-color: var(--link);
 }
 
 .sv-entry[aria-current='true'] .sv-entry-id,
@@ -379,6 +384,53 @@
   display: none;
 }
 
+/* The commit's status, when a program driving the page gives one: a stripe
+   down its left edge, saying what it is in its tooltip. */
+.sv-entry {
+  position: relative;
+}
+
+.sv-entry-status {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 4px;
+  background: var(--fg-muted);
+  opacity: 0.45;
+}
+
+.sv-entry-status[hidden] {
+  display: none;
+}
+
+.sv-status-approved {
+  background: var(--accent);
+  opacity: 1;
+}
+
+.sv-status-changed {
+  background: #d4a72c;
+  opacity: 1;
+}
+
+/* A link the program put in a subject, such as the bug to file. */
+.sv-entry-subject a.dv-bug,
+.sv-title-link {
+  color: var(--link);
+  text-decoration: none;
+}
+
+.sv-entry-subject a.dv-bug:visited,
+.sv-title-link:visited {
+  color: var(--link-visited);
+}
+
+.sv-entry-subject a.dv-bug:hover,
+.sv-title-link:hover {
+  text-decoration: underline;
+}
+
 /* The pane */
 
 .sv-pane {
@@ -406,4 +458,10 @@
 
 .sv-frame.sv-frame-current {
   visibility: visible;
+}
+
+/* A title link calling for something to be done, such as a bug to file. */
+.sv-entry-subject a.sv-title-link-attention,
+.sv-entry-subject a.sv-title-link-attention:visited {
+  color: var(--danger);
 }

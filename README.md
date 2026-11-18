@@ -222,6 +222,8 @@ diff-viewer [options] [file.diff]
   -o, --output <f>  Write a standalone HTML file instead of serving it.
   -p, --port <n>    Listen on this port instead of a random free one.
       --no-open     Print the URL instead of launching a browser.
+      --annotations <file>
+                    Show what a program says about the commits (below).
   -t, --title <s>   Name this diff in the tab and page header.
   -h, --help        Show help.
   -v, --version     Show the version.
@@ -340,6 +342,8 @@ stack-viewer [options] [revset]
   -o, --output <f>  Write a standalone HTML file instead of serving it.
   -p, --port <n>    Listen on this port instead of a random free one.
       --no-open     Print the URL instead of launching a browser.
+      --annotations <file>
+                    Show what a program says about the commits (below).
       --max-commits <n>
                     Build at most this many commits (default 100).
   -h, --help        Show help.
@@ -408,6 +412,77 @@ that ends at `@` shows what is on disk now. As with `diff-viewer`, the page is
 self-contained and the command exits shortly after the browser has loaded it.
 The commits' pages are carried inside it and parsed the first time each one is
 opened, so a long stack appears as quickly as a short one.
+
+## Driving the viewer from a program
+
+A program that reviews commits with you — the one this was written for files
+Firefox patches — can annotate the commits `stack-viewer` and `diff-viewer`
+show, by passing a JSON file with `--annotations`:
+
+```json
+{
+  "title": "mochitest-plain repeat: failures on repeat runs",
+  "commits": {
+    "<full sha>": {
+      "status": { "kind": "approved", "label": "Approved", "tooltip": "You approved it" },
+      "titleLinks": [
+        { "text": "Bug XXXXXXX", "href": "https://bugzilla.mozilla.org/enter_bug.cgi", "tooltip": "File the bug" }
+      ],
+      "actions": [
+        { "id": "approve", "label": "Approve", "kind": "button", "at": "end", "tone": "positive" },
+        { "id": "set-bug", "label": "Bug number", "kind": "input", "placeholder": "1234567" }
+      ]
+    }
+  }
+}
+```
+
+Every field is optional, and a commit the file does not name is shown as it
+would be without one.
+
+- `title`, for the whole stack, is shown in stack-viewer's header and the
+  tab's title in place of the range and the folder it was read from.
+- `status` is a badge under the commit message's first line, and a stripe down
+  the commit's left edge in the stack's list. `kind` picks the colour —
+  `approved`, `changed`, anything else grey — `label` is what the badge says,
+  and `tooltip`, or else `label`, what hovering either says.
+- `titleLinks` make the first occurrence of each `text` in the message, and in
+  the subject in the list, a link to `href`, opened in a new tab. Text that is
+  already a link, such as a bug number, is pointed at `href` instead. With a
+  `label`, the link shows it in place of `text` (a placeholder the program has
+  since filled in, or what is to be done about it); `tone` `attention` draws
+  it in red. Only web and mail links are made. Following one, in the message or the list, also
+  dispatches in the top window
+
+  ```js
+  window.dispatchEvent(new CustomEvent('mdv-link', { detail: { commit: sha, text, href } }))
+  ```
+
+  so that the program knows where the reader went — to file the bug it
+  drafted, say, whose number it can then look for once they are back.
+- `actions` are controls on the message's bar, or with `"at": "end"` at the end
+  of the page, after the files, for
+  what is done once it has all been read: a `button`, or an `input` that
+  fires on Enter. A button at the end is filled in the link colour, or green
+  with `"tone": "positive"`; `"disabled": true` greys it out. The page does nothing with them itself. Using one dispatches,
+  in the top window — the stack's page around the commit's frame, or the one
+  page diff-viewer shows —
+
+  ```js
+  window.dispatchEvent(new CustomEvent('mdv-action', { detail: { commit: sha, id, value } }))
+  ```
+
+  with `value` the input's text, or undefined for a button.
+
+The program then acts, and may call `mdvSetAnnotations(sha, annotation)` in
+that same window to redraw the commit with a new annotation: the badge, the
+links and the controls change in place, and text being typed into a control
+is kept. In stack-viewer the call reaches a commit's page whether or not it
+has been opened yet. It returns whether the sha named a commit there.
+
+`diff-viewer` reads the commit from the `commit <sha>` line `git show` puts at
+the top of a patch; a diff without one takes the file's commit if it names
+only one.
 
 ## How md-viewer works
 

@@ -383,9 +383,118 @@
 }
 
 /* The bar's pieces are text of different fonts and sizes, which line up on
-   their baseline rather than their middle. */
+   their baseline rather than their middle. Controls a program adds can make
+   it longer than the page is wide, so it wraps. */
 .dv-message .dv-file-header {
   align-items: baseline;
+  flex-wrap: wrap;
+  row-gap: 0.35rem;
+}
+
+/* Annotations: what a program driving the page says about the commit. */
+
+/* The status, under the message's first line, which is its title. It then
+   separates the title from the body, so the blank line after the title,
+   kept for comments counting the message's lines, takes no room. */
+.mdv-badge-row {
+  padding: 0.1rem 0.2em 0.5rem;
+}
+
+.mdv-badge-row + .dv-line-msg .dv-text:empty {
+  min-height: 0;
+}
+
+/* The bar a loose diff gets for them, having no message to carry one. */
+.mdv-annot-bar {
+  margin-bottom: 1rem;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  position: static;
+}
+
+.mdv-badge {
+  padding: 0.05rem 0.5rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--fg-muted);
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+
+.mdv-badge-approved {
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+}
+
+.mdv-badge-changed {
+  color: #9a6700;
+  background: color-mix(in srgb, #d4a72c 14%, transparent);
+}
+
+@media (prefers-color-scheme: dark) {
+  .mdv-badge-changed {
+    color: #d29922;
+  }
+}
+
+.mdv-actions {
+  display: inline-flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.mdv-action-button,
+.mdv-action-input input {
+  font: inherit;
+  font-size: 0.78rem;
+  color: var(--fg);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+}
+
+.mdv-action-button {
+  padding: 0.1rem 0.6rem;
+  cursor: pointer;
+}
+
+.mdv-action-button:hover {
+  border-color: var(--fg-muted);
+}
+
+.mdv-action-input {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.3rem;
+  font-size: 0.78rem;
+  color: var(--fg-muted);
+}
+
+.mdv-action-input input {
+  width: 8rem;
+  padding: 0.1rem 0.35rem;
+}
+
+.dv-line-msg a.mdv-title-link {
+  color: var(--link);
+  text-decoration: underline dotted;
+}
+
+.dv-line-msg a.mdv-title-link:visited {
+  color: var(--link-visited);
+}
+
+/* A title link calling for something to be done, such as a bug to file. */
+.dv-line-msg a.mdv-title-link-attention,
+.dv-line-msg a.mdv-title-link-attention:visited {
+  color: var(--danger);
+  text-decoration: none;
+}
+
+.dv-line-msg a.mdv-title-link-attention:hover {
+  text-decoration: underline;
 }
 
 .dv-message .dv-summary {
@@ -455,4 +564,38 @@
 /* Review marks sit inside the code cells, so they inherit the mono font. */
 #mdv-content mark.mdv-mark {
   padding: 0;
+}
+
+/* ---------------------------------------------------------------------------
+   The end of a commit's page: the actions for once it has all been read, such
+   as approving it.
+   --------------------------------------------------------------------------- */
+
+.mdv-actions-end {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+
+.mdv-annot-end {
+  margin: 0 0 1.5rem;
+}
+
+.mdv-actions-end .mdv-action-button {
+  padding: 0.3rem 1rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #fff;
+  background: var(--link);
+  border-color: var(--link);
+}
+
+.mdv-actions-end .mdv-action-positive {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+.mdv-actions-end .mdv-action-button:disabled {
+  opacity: 0.6;
+  cursor: default;
 }

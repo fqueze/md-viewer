@@ -6,6 +6,11 @@
  * The pages are same-origin with this one, so this script can reach into a
  * frame: to hear how many comments it has, to forward the keys that switch
  * commits, and to read its comments out when the stack's review is copied.
+ *
+ * A program driving the page can annotate its commits (see annotate.js). The
+ * list shows each commit's status, as a coloured stripe, and title links, and `mdvSetAnnotations`
+ * here is how the program changes one: it redraws the list and hands the
+ * annotation on to that commit's page, now or once the page is opened.
  */
 (function () {
   'use strict';
@@ -25,10 +30,16 @@
   var widthHandle = document.getElementById('sv-width-handle');
   var files = document.getElementById('sv-files');
 
-  /** @type {{sha: string, label: string, subject: string}[]} */
+  /** @type {{sha: string, label: string, subject: string, annotation?: object}[]} */
   var meta = JSON.parse(document.getElementById('sv-meta').textContent);
   /** The frame for each commit, once the reader has opened it. */
   var frames = new Array(meta.length);
+  /** Whether each frame's page has loaded, and so has its scripts to call. */
+  var loaded = new Array(meta.length);
+  /** Annotations handed in since the page was built, for frames that will
+   *  only hear of them when they load: a frame starts from the one it was
+   *  built with. */
+  var updated = new Array(meta.length);
   /** Comments on each commit so far, as its frame last reported them. */
   var counts = new Array(meta.length);
   var current = -1;
@@ -68,6 +79,11 @@
       setCount(i, event.detail.count);
     });
     win.addEventListener('keydown', onKeyDown);
+    loaded[i] = true;
+    if (updated[i] !== undefined && win.mdvSetAnnotations) {
+      win.mdvSetAnnotations(meta[i].sha, updated[i]);
+      updated[i] = undefined;
+    }
     track(win, doc, i);
     applyLayout(i);
     // A page picks its layout from its width until the reader picks one, and
@@ -281,6 +297,96 @@
   });
 
   // ---------------------------------------------------------------------------
+  // Annotations
+  // ---------------------------------------------------------------------------
+
+  /** Only links that go somewhere on the web; anything else is left as text. */
+  function safeHref(href) {
+    return /^(https?:|mailto:)/i.test(href || '') ? href : null;
+  }
+
+  /**
+   * A commit's status and title links, in its entry. The subject is redrawn
+   * from its text each time, so that a link the program has taken away goes.
+   */
+  function drawEntry(i) {
+    var annotation = meta[i].annotation || {};
+    var entry = entries[i];
+    var badge = entry.querySelector('.sv-entry-status');
+    var status = annotation.status;
+    badge.hidden = !status || !status.label;
+    badge.title = status ? status.tooltip || status.label || '' : '';
+    badge.className =
+      'sv-entry-status sv-status-' +
+      (String((status && status.kind) || '').toLowerCase().replace(/[^a-z0-9-]/g, '') || 'none');
+
+    // As the page drew it, its bug numbers linked, before this annotation's links.
+    var subject = entry.querySelector('.sv-entry-subject');
+    if (subject.mdvDrawn == null) subject.mdvDrawn = subject.innerHTML;
+    subject.innerHTML = subject.mdvDrawn;
+    var links = annotation.titleLinks || [];
+    for (var j = 0; j < links.length; j++) {
+      var link = links[j];
+      var href = link && link.text && safeHref(link.href);
+      if (!href) continue;
+      // The subject is one text node and the links already made, so the first
+      // occurrence is in whichever text node holds it.
+      var nodes = subject.childNodes;
+      for (var k = 0; k < nodes.length; k++) {
+        var node = nodes[k];
+        if (node.nodeType !== Node.TEXT_NODE) continue;
+        var at = node.textContent.indexOf(link.text);
+        if (at === -1) continue;
+        var a = document.createElement('a');
+        a.className = 'sv-title-link';
+        a.href = href;
+        a.target = '_blank';
+        a.rel = 'noopener';
+        if (link.tooltip) a.title = link.tooltip;
+        var rest = node.splitText(at);
+        rest.splitText(link.text.length);
+        subject.replaceChild(a, rest);
+        a.appendChild(rest);
+        if (link.label != null) a.textContent = String(link.label);
+        if (link.tone) a.classList.add('sv-title-link-' + String(link.tone).toLowerCase().replace(/[^a-z0-9-]/g, ''));
+        break;
+      }
+    }
+  }
+
+  /** Which commit a sha names, by prefix either way; -1 for none. */
+  function indexOf(sha) {
+    if (!sha) return -1;
+    for (var i = 0; i < meta.length; i++) {
+      if (meta[i].sha.indexOf(sha) === 0 || sha.indexOf(meta[i].sha) === 0) return i;
+    }
+    return -1;
+  }
+
+  /**
+   * Replace a commit's annotation: its entry here at once, and its page
+   * either now or, for a page not opened or not loaded yet, when it loads.
+   * @returns {boolean} whether the sha named a commit of this stack
+   */
+  window.mdvSetAnnotations = function (sha, annotation) {
+    var i = indexOf(sha);
+    if (i === -1) return false;
+    meta[i].annotation = annotation || {};
+    drawEntry(i);
+    var win = loaded[i] && frames[i].contentWindow;
+    if (win && win.mdvSetAnnotations) {
+      win.mdvSetAnnotations(meta[i].sha, annotation);
+    } else {
+      updated[i] = annotation;
+    }
+    return true;
+  };
+
+  for (var n = 0; n < meta.length; n++) {
+    if (meta[n].annotation) drawEntry(n);
+  }
+
+  // ---------------------------------------------------------------------------
   // Keys and clicks
   // ---------------------------------------------------------------------------
 
@@ -363,6 +469,24 @@
   }
 
   list.addEventListener('click', function (event) {
+    // A bug number or a title link sits inside the commit's button, where a
+    // browser need not follow it, so it is followed here — and does not switch
+    // commits.
+    var bug = event.target.closest('.sv-entry-subject a.dv-bug');
+    if (bug) {
+      event.preventDefault();
+      window.open(bug.href, '_blank', 'noopener');
+      return;
+    }
+    var link = event.target.closest('a.sv-title-link');
+    if (link) {
+      event.preventDefault();
+      window.open(link.href, '_blank', 'noopener');
+      // As a title link in the commit's page announces itself (annotate.js).
+      var at = Number(link.closest('.sv-entry').dataset.index);
+      window.dispatchEvent(new CustomEvent('mdv-link', { detail: { commit: meta[at].sha, text: link.textContent, href: link.href } }));
+      return;
+    }
     var entry = event.target.closest('.sv-entry');
     if (entry) show(Number(entry.dataset.index));
     var file = event.target.closest('.sv-file');

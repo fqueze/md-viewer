@@ -18,7 +18,8 @@ import fs from 'node:fs';
 import fsp from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { looksLikeDiff } from './lib/diff.js';
+import { looksLikeDiff, splitCommitMessage } from './lib/diff.js';
+import { annotationFor, readAnnotations } from './lib/annotations.js';
 import { buildDiffPage } from './lib/diff-page.js';
 import { serveOnce, writeStandalone } from './lib/serve-once.js';
 import { parseRemoteTarget, readRemoteFile } from './lib/remote.js';
@@ -36,6 +37,9 @@ Options:
   -o, --output <f>  Write a standalone HTML file instead of serving it.
   -p, --port <n>    Listen on this port instead of a random free one.
       --no-open     Print the URL instead of launching a browser.
+      --annotations <file>
+                    Show what a program says about the commit: a status,
+                    links and controls (see the README).
   -t, --title <s>   Name this diff in the tab and page header.
   -h, --help        Show this help.
   -v, --version     Show the version.
@@ -55,6 +59,7 @@ function parseArgs(argv) {
     output: null,
     port: Number(process.env.DIFF_VIEWER_PORT) || 0,
     open: true,
+    annotations: null,
     title: null,
   };
 
@@ -82,6 +87,10 @@ function parseArgs(argv) {
         break;
       case '--no-open':
         options.open = false;
+        break;
+      case '--annotations':
+        options.annotations = argv[++i];
+        if (!options.annotations) fail('--annotations needs a file name');
         break;
       case '-o':
       case '--output':
@@ -149,10 +158,33 @@ function defaultTitle(source, file) {
   return match ? `diff — ${match[1]}` : 'diff';
 }
 
+/**
+ * The page options for an annotated diff. The commit is the one `git show`
+ * named at the top of the diff; a diff that names none takes the file's only
+ * commit, if it has just one, since that is plainly the one meant. Either way
+ * the page names it, which is what the program's redraws are addressed to.
+ */
+function annotated(source, annotations) {
+  const named = splitCommitMessage(source).message?.headers.find(([key]) => key === 'commit')?.[1];
+  const keys = Object.keys(annotations.commits);
+  const commit = named || (keys.length === 1 ? keys[0] : null);
+  const annotation = annotationFor(annotations, commit);
+  return { annotated: true, annotation, commit };
+}
+
 // ---------------------------------------------------------------------------
 
 async function main() {
   const options = parseArgs(process.argv.slice(2));
+
+  let annotations = null;
+  if (options.annotations) {
+    try {
+      annotations = await readAnnotations(options.annotations);
+    } catch (error) {
+      fail(error.message);
+    }
+  }
 
   // `host:path` only when there is no such file here, so that a local path
   // containing a colon still wins.
@@ -189,6 +221,7 @@ async function main() {
 
   const document = await buildDiffPage(source, {
     title: options.title || defaultTitle(source, options.file),
+    ...(annotations ? annotated(source, annotations) : {}),
   });
   if (options.output) {
     await writeStandalone(document, { ...options, tool: 'diff-viewer' });
