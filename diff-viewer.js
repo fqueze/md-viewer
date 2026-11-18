@@ -39,7 +39,7 @@ Options:
       --no-open     Print the URL instead of launching a browser.
       --annotations <file>
                     Show what a program says about the commit: a status,
-                    links and controls (see the README).
+                    links, controls and sections (see the README).
   -t, --title <s>   Name this diff in the tab and page header.
   -h, --help        Show this help.
   -v, --version     Show the version.

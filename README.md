@@ -431,6 +431,9 @@ show, by passing a JSON file with `--annotations`:
       "actions": [
         { "id": "approve", "label": "Approve", "kind": "button", "at": "end", "tone": "positive" },
         { "id": "set-bug", "label": "Bug number", "kind": "input", "placeholder": "1234567" }
+      ],
+      "sections": [
+        { "id": "test-plan", "title": "Test plan", "markdown": "Ran it **ten times**…" }
       ]
     }
   }
@@ -474,11 +477,35 @@ would be without one.
 
   with `value` the input's text, or undefined for a button.
 
+- `sections` are drawn in the message's box, under it, in order (in a box of
+  their own over a loose diff), each its `markdown` under its `title`. A passage of one is commented on as
+  the message is. The markdown is the program's rather than the reader's, so
+  HTML in it is shown as text.
+
 The program then acts, and may call `mdvSetAnnotations(sha, annotation)` in
 that same window to redraw the commit with a new annotation: the badge, the
 links and the controls change in place, and text being typed into a control
 is kept. In stack-viewer the call reaches a commit's page whether or not it
 has been opened yet. It returns whether the sha named a commit there.
+
+Sections are drawn with the page, so a later annotation redraws everything
+but them.
+
+### Reading the review back
+
+The program reads what you wrote out of each commit's page — the frames of a
+stack-viewer page are the same origin as it — with the globals that
+`Copy all reviews` uses: `mdvReviewComments()` returns the new comments, and
+`mdvReviewEntries(comments)` writes them as the entries of a review. Each
+comment has an `id` made when it was written, its `text`, and an `anchor`
+saying where it is:
+
+```js
+{ file: 'dom/base/Foo.cpp', line: 12, side: 'new' }   // a line of a file, or old for a deletion
+{ file: 'dom/base/Foo.cpp', line: [12, 15], side: 'new' }   // several lines
+{ file: '(commit)', line: 3 }              // the commit message, counting its lines
+{ file: '(section:test-plan)', line: 7 }   // a section, counting lines of its markdown
+```
 
 `diff-viewer` reads the commit from the `commit <sha>` line `git show` puts at
 the top of a patch; a diff without one takes the file's commit if it names

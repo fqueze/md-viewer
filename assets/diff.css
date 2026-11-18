@@ -77,6 +77,7 @@
 /* The commit message is a box of its own, and the files share one below it,
    each running into the next as on Phabricator. */
 .dv-message,
+.dv-section,
 .dv-files {
   margin-bottom: 1.5rem;
   border: 1px solid var(--border);
@@ -392,6 +393,53 @@
 }
 
 /* Annotations: what a program driving the page says about the commit. */
+
+/* A section such as the test plan: markdown, in the body font, in a box of
+   its own between the message and the files. */
+.dv-section-title {
+  font-weight: 600;
+}
+
+.dv-section-body {
+  padding: 0.6rem 0.9rem;
+  font-size: 0.95rem;
+}
+
+.dv-section-body > :first-child {
+  margin-top: 0;
+}
+
+.dv-section-body > :last-child {
+  margin-bottom: 0;
+}
+
+/* In a commit's message box, a section is a part of it, under a rule, with a
+   small heading, as the test plan is on Phabricator. */
+.dv-message .dv-section {
+  margin: 0 0.9rem;
+  padding: 0.5rem 0 0.75rem;
+  border: 0;
+  border-top: 1px solid var(--border-subtle);
+  border-radius: 0;
+}
+
+.dv-message .dv-section > .dv-file-header {
+  position: static;
+  padding: 0 0 0.35rem;
+  background: none;
+  border: 0;
+}
+
+.dv-message .dv-section-title {
+  font-size: 0.75rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--fg-muted);
+}
+
+.dv-message .dv-section-body {
+  padding: 0;
+}
 
 /* The status, under the message's first line, which is its title. It then
    separates the title from the body, so the blank line after the title,

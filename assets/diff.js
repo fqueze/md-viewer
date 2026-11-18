@@ -171,7 +171,24 @@
     };
   };
 
+  /**
+   * Where a comment sits, in the terms a program reading it back uses: the
+   * file and its line or lines, `[first, last]` when it spans several, and
+   * which version the numbers count in. The commit message is the file
+   * `(commit)`, and a section `(section:<id>)`, each counting lines of its own
+   * text.
+   */
+  function anchorOf(file, first, last, side) {
+    var anchor = { file: file, line: first && last && last > first ? [first, last] : first || null };
+    if (side) anchor.side = side;
+    return anchor;
+  }
+
   window.mdvReviewPlace = function (node, range) {
+    var element = node.nodeType === Node.TEXT_NODE ? node.parentNode : node;
+    var section = element && element.closest ? element.closest('.dv-section') : null;
+    if (section) return sectionPlace(section, node, range);
+
     var line = lineOf(node);
     if (!line) return null;
     var file = line.closest('.dv-file');
@@ -185,21 +202,89 @@
     // place rather than as a path — a review that said "foo.js:3" for a claim
     // in the message would send the reader to the wrong text entirely.
     if (line.dataset.side === 'msg') {
+      var first = Number(line.dataset.msgLine) || null;
       return {
         message: true,
-        line: Number(line.dataset.msgLine) || null,
+        line: first,
         context: contextOf(line, last),
+        anchor: anchorOf('(commit)', first, Number(last.dataset.msgLine) || first),
       };
     }
 
+    // A deletion has no line in the new file; say which side its number came
+    // from, so it is not read against the wrong version.
+    var side = line.dataset.side === 'del' ? 'old' : 'new';
+    var path = file ? file.dataset.path : null;
+    var number = Number(line.dataset.line) || null;
+    // A range is only a range of one version's lines: one that runs from a
+    // deletion into what replaced it is reported by where it starts.
+    var lastSide = last.dataset.side === 'del' ? 'old' : 'new';
+    var end = lastSide === side ? Number(last.dataset.line) || number : number;
     return {
-      path: file ? file.dataset.path : null,
-      // A deletion has no line in the new file; say which side its number came
-      // from, so it is not read against the wrong version.
-      side: line.dataset.side === 'del' ? 'old' : 'new',
+      path: path,
+      side: side,
       context: contextOf(line, last),
+      anchor: anchorOf(path, number, end, side),
     };
   };
+
+  // ---------------------------------------------------------------------------
+  // Sections
+  // ---------------------------------------------------------------------------
+
+  /**
+   * The line of a section's markdown source that a point in its text came
+   * from. The renderer stamps each block with the line it starts on, and a
+   * paragraph keeps the line breaks of its source as newlines in its text, so
+   * counting those up to the point finds the line within the block. A fenced
+   * code block starts on its fence, a line before the code.
+   */
+  function sourceLine(section, node, offset) {
+    var element = node.nodeType === Node.TEXT_NODE ? node.parentNode : node;
+    var block = element && element.closest ? element.closest('[data-line]') : null;
+    if (!block || !section.contains(block)) return null;
+    var line = Number(block.dataset.line);
+    var source = section.dataset.source.split('\n');
+    if (block.tagName === 'PRE' && /^\s*(```|~~~)/.test(source[line - 1] || '')) line++;
+
+    var walker = document.createTreeWalker(block, NodeFilter.SHOW_TEXT);
+    var text;
+    while ((text = walker.nextNode())) {
+      if (text === node) {
+        return line + (text.textContent.slice(0, offset).match(/\n/g) || []).length;
+      }
+      line += (text.textContent.match(/\n/g) || []).length;
+    }
+    return Number(block.dataset.line);
+  }
+
+  /**
+   * Where a comment on a section sits: the section, and lines of its markdown
+   * source, quoted with a couple of lines either side as the message is.
+   */
+  function sectionPlace(section, node, range) {
+    var first = sourceLine(section, node, range ? range.startOffset : 0);
+    var last = range ? sourceLine(section, range.endContainer, range.endOffset) : null;
+    if (!last || last < first) last = first;
+    var source = section.dataset.source.split('\n');
+    var context = [];
+    if (first) {
+      var from = Math.max(1, first - CONTEXT_LINES);
+      var to = Math.min(source.length, last + CONTEXT_LINES);
+      for (var n = from; n <= to; n++) {
+        // The leading space stands where a diff's marker would, as it does
+        // for the message's lines.
+        context.push({ text: ' ' + source[n - 1], here: n >= first && n <= last });
+      }
+    }
+    return {
+      section: section.dataset.section,
+      title: section.dataset.title,
+      line: first,
+      context: context,
+      anchor: anchorOf('(section:' + section.dataset.section + ')', first, last),
+    };
+  }
 
   // ---------------------------------------------------------------------------
   // Copying the review out
@@ -232,11 +317,16 @@
       var comment = comments[i];
       var place = comment.place || {};
       var where;
+      // The message and the sections are prose rather than a patch.
+      var prose = place.message || place.section;
       if (place.message) {
         // A comment on the message names the message, not a file. Its number
         // counts lines of the message text, which is worth saying: it is not a
         // line of anything the patch touches.
         where = 'the commit message';
+        if (place.line) where += ', line ' + place.line;
+      } else if (place.section) {
+        where = 'the ' + place.title + ' section';
         if (place.line) where += ', line ' + place.line;
       } else {
         where = place.path || 'unknown file';
@@ -271,13 +361,20 @@
         // are what point into it. The message is prose rather than a patch, so
         // it is quoted as text: calling it a diff would put a marker column in
         // front of English sentences and invite an agent to apply it.
-        out.push(place.message ? '  ```' : '  ```diff');
+        // A fence of its own length or more would end the block early, which
+        // markdown quoted from a section can hold; a longer one cannot be.
+        var fence = context.some(function (entry) {
+          return entry.text.indexOf('```') !== -1;
+        })
+          ? '````'
+          : '```';
+        out.push('  ' + fence + (prose ? '' : 'diff'));
         for (var j = 0; j < context.length; j++) {
           // Every message line carries the marker a context line would; on
           // prose that leading space is noise, so it comes back off.
-          out.push('  ' + (place.message ? context[j].text.slice(1) : context[j].text));
+          out.push('  ' + (prose ? context[j].text.slice(1) : context[j].text));
         }
-        out.push('  ```');
+        out.push('  ' + fence);
         out.push('');
       }
       out.push('  ' + comment.text.replace(/\n/g, '\n  '));

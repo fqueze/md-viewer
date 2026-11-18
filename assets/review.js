@@ -23,11 +23,13 @@
   var copy = bar.querySelector('.mdv-review-copy');
 
   /**
-   * @type {{id: string, text: string, anchor: object, quote: string,
-   *   line: number|null, place: object|null, scope: string|null}[]}
+   * `textAnchor` is where the comment sits in the text, as below; `anchor` is
+   * where it sits in the document's own terms — a file and a line — when the
+   * page can say, which is what a program reading the comments back wants.
+   * @type {{id: string, text: string, textAnchor: object, anchor: object|null,
+   *   quote: string, line: number|null, place: object|null, scope: string|null}[]}
    */
   var comments = [];
-  var nextId = 1;
   var pending = null;
   var selectionTimer = null;
   var mouseDown = false;
@@ -544,6 +546,15 @@
   // The comment list
   // ---------------------------------------------------------------------------
 
+  /**
+   * An id for a new comment that stays its own: a program reading the
+   * comments back tells them apart by it, and a counter would start over
+   * with every page.
+   */
+  function newId() {
+    return 'c-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 8);
+  }
+
   function find(id) {
     for (var i = 0; i < comments.length; i++) {
       if (comments[i].id === id) return comments[i];
@@ -553,11 +564,12 @@
 
   function keep(text) {
     if (!pending) return;
-    var id = 'c' + nextId++;
+    var id = newId();
     comments.push({
       id: id,
       text: text,
-      anchor: pending.anchor,
+      textAnchor: pending.textAnchor,
+      anchor: (pending.place && pending.place.anchor) || null,
       quote: pending.quote,
       line: pending.line,
       place: pending.place,
@@ -613,7 +625,7 @@
       // The anchor was recorded from one column's text, so it only reads back
       // against that same column — which is why the comment kept its name.
       var test = testOf(scopeNamed(comment.scope));
-      var range = findAnchor(comment.anchor, test);
+      var range = findAnchor(comment.textAnchor, test);
       if (!range) continue;
       // The line may have moved with the edit that triggered the reload.
       var line = lineOf(range.startContainer);
@@ -678,7 +690,7 @@
     if (!text) return;
 
     pending = {
-      anchor: createAnchor(range, testOf(scope)),
+      textAnchor: createAnchor(range, testOf(scope)),
       quote: text,
       line: lineOf(range.startContainer),
       place: placeOf(range.startContainer, range),
