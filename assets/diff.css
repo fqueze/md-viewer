@@ -317,6 +317,7 @@
    rather than the markup. */
 .dv-message .dv-msg-table {
   padding: 0.6rem 0.9rem;
+  font-family: var(--sans);
 }
 
 /* One column in both layouts, and it has to outrank the per-layout grids
