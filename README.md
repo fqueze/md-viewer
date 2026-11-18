@@ -369,6 +369,9 @@ them with `Alt+↑` and `Alt+↓` or `Shift+↑` and `Shift+↓`; `Alt+L` and th
 gives a side-by-side diff the width back. The URL's `#n` records which commit
 is open, so a reload comes back to it.
 
+The page colours the code itself, a commit as it is shown, with
+highlight.js's core and the languages of its files only.
+
 Below the commits, the files the open commit changes are listed as a tree of
 their directories, as on Phabricator. Click one to scroll the diff to it.
 
