@@ -78,6 +78,9 @@
     doc.addEventListener('mdv-review-change', function (event) {
       setCount(i, event.detail.count);
     });
+    // A page can come back with drafts it was left with, counted before
+    // this listened.
+    if (win.mdvReviewComments) setCount(i, win.mdvReviewComments().length);
     win.addEventListener('keydown', onKeyDown);
     loaded[i] = true;
     if (updated[i] !== undefined && win.mdvSetAnnotations) {

@@ -728,10 +728,49 @@
    * answering it should not throw the answer away.
    * @type {Object<string, {response: string, text?: string}>}
    */
-  var responses = {};
+  var responses = loadResponses();
   /** Responses the program has taken (see mdvReviewMarkSent), by id: shown,
    *  and no longer changeable or read out. */
   var sent = {};
+
+  /**
+   * Responses not yet sent are kept as drafts in localStorage, as review.js
+   * keeps new comments, under the commit's sha: a reply half written is not
+   * lost to a reload. Sent ones are dropped from it.
+   */
+  function draftsKey() {
+    var id = root.dataset.drafts || sha;
+    return id ? 'mdv-review-drafts:v1:' + id + ':responses' : null;
+  }
+
+  function storage() {
+    try {
+      return window.localStorage;
+    } catch (error) {
+      return null;
+    }
+  }
+
+  function loadResponses() {
+    var store = draftsKey() && storage();
+    try {
+      var kept = store && JSON.parse(store.getItem(draftsKey()) || 'null');
+      return kept && typeof kept === 'object' && !Array.isArray(kept) ? kept : {};
+    } catch (error) {
+      return {};
+    }
+  }
+
+  function saveResponses() {
+    var store = draftsKey() && storage();
+    if (!store) return;
+    try {
+      if (Object.keys(responses).length) store.setItem(draftsKey(), JSON.stringify(responses));
+      else store.removeItem(draftsKey());
+    } catch (error) {
+      // Full, or refused: the responses are still on the page.
+    }
+  }
 
   /** The state a comment would be in after the reader's response. */
   function stateOf(comment) {
@@ -796,6 +835,7 @@
       var thread = threadOf(comment.id);
       if (thread) thread.replaceWith(threadHtml(comment, thread.mdvDisplaced));
     }
+    saveResponses();
     document.dispatchEvent(new CustomEvent('mdv-responses-change', { detail: { count: Object.keys(responses).length } }));
   }
 
@@ -1147,6 +1187,7 @@
       var thread = threadOf(id);
       if (comment && thread) thread.replaceWith(threadHtml(comment, thread.mdvDisplaced));
     }
+    saveResponses();
     document.dispatchEvent(new CustomEvent('mdv-responses-change', { detail: { count: Object.keys(responses).length } }));
   };
 

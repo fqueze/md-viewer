@@ -196,7 +196,8 @@ Please address these review comments on /tmp/notes.md:
 The line numbers come from the renderer, which records the source line of every
 block it emits, so an agent can go straight to the passage.
 
-Comments live in the page and nothing is written to disk. Saving the file keeps
+Comments live in the page and nothing is written to disk (a commit's page
+reviewed for a program keeps drafts; see below). Saving the file keeps
 them: each one remembers the text it refers to along with the text either side,
 so it re-attaches after the reload as long as that passage is still there. A
 comment whose text you deleted stays in the list, with nothing left to point at.
@@ -549,8 +550,8 @@ The program reads what you wrote out of each commit's page — the frames of a
 stack-viewer page are the same origin as it — with the globals that
 `Copy all reviews` uses: `mdvReviewComments()` returns the new comments, and
 `mdvReviewEntries(comments)` writes them as the entries of a review. Each
-comment has an `id` made when it was written, its `text`, and an `anchor`
-saying where it is:
+comment has an `id` made when it was written, which stays its own across a
+reload, its `text`, and an `anchor` saying where it is:
 
 ```js
 { file: 'dom/base/Foo.cpp', line: 12, side: 'new' }   // a line of a file, or old for a deletion
@@ -572,6 +573,22 @@ ids of the comments and the responses it sent. They stay on the page, drawn
 as sent and read-only, and `mdvReviewComments()`, `mdvReviewEntries()`,
 `mdvReviewResponses()` and the `Copy review` pills leave them out from then
 on, so that sending again sends only what is new.
+
+What has not been sent is kept in the browser's `localStorage` as it is
+typed — a comment half written included — and comes back when the same commit
+is shown again, from the same origin: the stack page, rebuilt with a new
+annotation, finds your drafts on its commits. Sent and deleted ones are
+dropped. Each commit has two entries, `mdv-review-drafts:v1:<sha>:comments`
+and `…:responses`; `v1` is the version of what is kept, not the page's build,
+since a program rebuilds the page around a commit far more often than the
+commit changes. A loose diff, with no sha, keeps nothing.
+
+A commit's sha changes when it is rebased or reworded, as when a program puts
+a bug number in the message of a commit under it, and drafts kept under the
+old sha would not be found. An annotation's `draftKey`, a name the program
+gives the commit that outlives its sha, is used in its place:
+`mdv-review-drafts:v1:<draftKey>:comments`. A draft whose passage the new
+version no longer has is kept, with nothing to point at.
 
 `diff-viewer` reads the commit from the `commit <sha>` line `git show` puts at
 the top of a patch; a diff without one takes the file's commit if it names

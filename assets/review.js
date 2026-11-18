@@ -3,7 +3,10 @@
  * as a prompt for an agent to act on.
  *
  * Comments live in this page only. A reload starts over, which is the point:
- * they are a scratchpad for one pass over a file, not a stored artefact.
+ * they are a scratchpad for one pass over a file, not a stored artefact. The
+ * exception is a commit's page: a commit is the same commit whenever it is
+ * shown again, and the review of one is sent somewhere rather than copied, so
+ * what has not been sent is kept as a draft in localStorage (see Drafts).
  *
  * Each comment holds a content anchor (the selected text plus the text either
  * side of it) rather than a DOM position, so a comment survives the live-reload
@@ -20,6 +23,7 @@
   var article = document.getElementById('mdv-content');
   var bar = document.getElementById('mdv-review');
   var count = bar.querySelector('.mdv-review-count');
+  var commit = document.getElementById('mdv-root').dataset.commit || '';
   var copy = bar.querySelector('.mdv-review-copy');
 
   /**
@@ -419,6 +423,7 @@
     if (!box) return;
     if (!box.dataset.commentId) discardPending();
     closeBox();
+    saveDrafts();
   }
 
   /** Save whatever is in the open box, then close it. */
@@ -436,6 +441,7 @@
         remove(id);
       } else if (comment && comment.text !== text) {
         comment.text = text;
+        saveDrafts();
       }
     } else if (text) {
       keep(text);
@@ -480,6 +486,7 @@
     var textarea = box.querySelector('textarea');
     textarea.value = comment ? comment.text : '';
     textarea.readOnly = Boolean(comment && comment.sent);
+    textarea.addEventListener('input', saveDrafts);
     textarea.addEventListener('keydown', function (event) {
       if (event.key === 'Enter' && !event.shiftKey) {
         event.preventDefault();
@@ -559,8 +566,8 @@
 
   /**
    * An id for a new comment that stays its own: a program reading the
-   * comments back tells them apart by it, and a counter would start over
-   * with every page.
+   * comments back tells them apart by it, and the page keeps a comment's draft
+   * across reloads under it, so it cannot be a counter that starts over.
    */
   function newId() {
     return 'c-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 8);
@@ -575,7 +582,7 @@
 
   function keep(text) {
     if (!pending) return;
-    var id = newId();
+    var id = pending.id;
     comments.push({
       id: id,
       text: text,
@@ -596,6 +603,7 @@
     }
     pending = null;
     render();
+    saveDrafts();
   }
 
   function remove(id) {
@@ -607,6 +615,7 @@
     }
     clearMarks('mark.mdv-mark[data-comment-id="' + id + '"]');
     render();
+    saveDrafts();
   }
 
   function discardPending() {
@@ -709,6 +718,9 @@
     if (!text) return;
 
     pending = {
+      // Made now rather than when it is saved, so that the draft kept while
+      // it is being typed is the same comment as the one it becomes.
+      id: newId(),
       textAnchor: createAnchor(range, testOf(scope)),
       quote: text,
       line: lineOf(range.startContainer),
@@ -863,5 +875,102 @@
       markSent(article.querySelectorAll('mark.mdv-mark[data-comment-id="' + comment.id + '"]'));
     }
     render();
+    saveDrafts();
   };
+
+  // ---------------------------------------------------------------------------
+  // Drafts
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Where a commit's unsent comments are kept: one entry per commit, under
+   * its sha — or the annotation's draftKey, the program's name for it that a
+   * rebase or a reworded message doesn't change — and a version of what is kept, so that a page from a later
+   * viewer that keeps them differently starts afresh rather than misreading
+   * them. A loose diff has no sha, and is a scratchpad as a document is.
+   *
+   * Not the page's build: a program redraws the page around a commit often —
+   * a new status, a new comment — and the reader's drafts on it are still
+   * theirs. A comment whose passage a new version of the commit no longer
+   * has is kept like one after a live reload, with nothing to point at.
+   */
+  var draftsId = document.getElementById('mdv-root').dataset.drafts || commit;
+  var DRAFTS = draftsId ? 'mdv-review-drafts:v1:' + draftsId + ':comments' : null;
+
+  /** localStorage, or null where the page may not have it. */
+  function storage() {
+    try {
+      return window.localStorage;
+    } catch (error) {
+      return null;
+    }
+  }
+
+  /** What a comment is kept as: everything but whether it was sent. */
+  function draftOf(comment, text) {
+    return {
+      id: comment.id,
+      text: text,
+      textAnchor: comment.textAnchor,
+      anchor: comment.anchor || (comment.place && comment.place.anchor) || null,
+      quote: comment.quote,
+      line: comment.line,
+      place: comment.place,
+      scope: comment.scope,
+    };
+  }
+
+  /**
+   * Keep the unsent comments, as they are typed: the one in the open box
+   * with the text it has so far, a new one included, since a reload in the
+   * middle of writing should not lose the writing.
+   */
+  function saveDrafts() {
+    var store = DRAFTS && storage();
+    if (!store) return;
+    var box = document.querySelector('.mdv-review-box');
+    var typing = box ? box.querySelector('textarea').value.trim() : '';
+    var open = box && box.dataset.commentId;
+    var drafts = unsent().map(function (comment) {
+      return draftOf(comment, comment.id === open && typing ? typing : comment.text);
+    });
+    if (box && !open && pending && typing) drafts.push(draftOf(pending, typing));
+    try {
+      if (drafts.length) store.setItem(DRAFTS, JSON.stringify(drafts));
+      else store.removeItem(DRAFTS);
+    } catch (error) {
+      // Full, or refused: the comments are still on the page.
+    }
+  }
+
+  /**
+   * Bring back the drafts this commit was left with. Each is highlighted
+   * where its passage is, as after a live reload.
+   */
+  function restoreDrafts() {
+    var store = DRAFTS && storage();
+    var kept = null;
+    try {
+      kept = store && JSON.parse(store.getItem(DRAFTS) || 'null');
+    } catch (error) {
+      kept = null;
+    }
+    if (!Array.isArray(kept)) return;
+    for (var i = 0; i < kept.length; i++) {
+      var draft = kept[i];
+      if (!draft || !draft.id || !draft.text || !draft.textAnchor || find(draft.id)) continue;
+      comments.push(draft);
+      var test = testOf(scopeNamed(draft.scope));
+      var range = findAnchor(draft.textAnchor, test);
+      if (range) highlight(range, draft.id, test);
+    }
+    render();
+  }
+
+  // After the page's other scripts, which may draw lines a draft is on.
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', restoreDrafts);
+  } else {
+    restoreDrafts();
+  }
 })();
