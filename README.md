@@ -605,6 +605,20 @@ version no longer has is kept, with nothing to point at.
 the top of a patch; a diff without one takes the file's commit if it names
 only one.
 
+### Serving the review from a program
+
+`stack-viewer` builds every commit's page before the stack's page can be
+shown. A program with a web server of its own can do better with
+`lib/api.js`: it builds the stack page from the commits' sources alone, with
+the list and a frame per commit that fetches the commit's page from a URL the
+program serves — first the one the page opens on, then the others' text in
+the background, each made a frame only once it is opened —
+and builds each commit's page when it is asked for. The pages link their stylesheets and scripts, which the program serves
+by name, so the browser loads them once. An annotations file's top-level
+`open`, a sha, names the commit the stack page opens on when its address
+names none, as a program would for the first commit left to review. The
+module's comment shows the calls.
+
 ## How md-viewer works
 
 A server on a random localhost port renders the file and holds a

@@ -54,20 +54,69 @@
    * The frame for commit `i`, made on first use. Its document is set before
    * the frame joins the page: a frame that is navigated after it is in the
    * page adds an entry to the tab's history, and the back button would then
-   * step through commits opened rather than pages visited.
+   * step through commits opened rather than pages visited. It is the page
+   * this one carries; for a page that does not, the text fetched ahead of
+   * the reader, or when it isn't here yet, the page at its `src`, loaded at
+   * once.
    */
   function frameFor(i) {
     if (frames[i]) return frames[i];
     var frame = document.createElement('iframe');
     frame.className = 'sv-frame';
     frame.title = meta[i].subject || meta[i].label;
-    frame.srcdoc = JSON.parse(document.getElementById('sv-page-' + i).textContent);
     frame.addEventListener('load', function () {
       attach(frame, i);
+      fetchAll();
     });
-    pane.appendChild(frame);
     frames[i] = frame;
+    if (!meta[i].src) {
+      frame.srcdoc = JSON.parse(document.getElementById('sv-page-' + i).textContent);
+      pane.appendChild(frame);
+    } else if (!texts[i]) {
+      frame.src = meta[i].src;
+      pane.appendChild(frame);
+    } else {
+      texts[i].then(
+        function (html) {
+          frame.srcdoc = html;
+          pane.appendChild(frame);
+        },
+        function () {
+          frame.src = meta[i].src;
+          pane.appendChild(frame);
+        },
+      );
+    }
     return frame;
+  }
+
+  /** The fetched pages' text, by commit, fetched once. */
+  var texts = [];
+
+  function pageText(i) {
+    if (!texts[i]) {
+      texts[i] = fetch(meta[i].src).then(function (response) {
+        if (!response.ok) throw new Error(response.statusText);
+        return response.text();
+      });
+      // A page that failed is loaded from its address when it is opened.
+      texts[i].catch(function () {});
+    }
+    return texts[i];
+  }
+
+  /**
+   * Once the commit being read is loaded, the other pages that are fetched
+   * are fetched as text, all at once, from the commit after it onwards: a
+   * commit opened is then built from what is already here, and nothing but
+   * the commit being read is laid out or run.
+   */
+  function fetchAll() {
+    if (!meta.length || !meta[0].src) return;
+    for (var k = 1; k < meta.length; k++) {
+      var j = (Math.max(current, 0) + k) % meta.length;
+      if (!frames[j]) pageText(j);
+    }
   }
 
   /** Listen to a frame's page once it has loaded. */
@@ -224,9 +273,10 @@
     for (var i = 0; i < frames.length; i++) applyLayout(i);
   });
 
+  /** The commit the address names, else the one the program said to open on, else the first. */
   function fromHash() {
     var n = parseInt(location.hash.slice(1), 10);
-    return n >= 1 && n <= meta.length ? n - 1 : 0;
+    return n >= 1 && n <= meta.length ? n - 1 : Number(root.dataset.open) || 0;
   }
 
   // ---------------------------------------------------------------------------
