@@ -285,14 +285,88 @@
   color: inherit;
 }
 
+/* A hunk header: the function git named, as code, where the code starts. */
 .dv-row-hunk {
-  padding: 0.15rem 0.5rem;
+  display: grid;
+  grid-template-columns: 1fr;
+  min-height: 1.6rem;
+  align-items: center;
   color: var(--dv-hunk-fg);
   background: var(--dv-hunk-bg);
   border-top: 1px solid var(--border-subtle);
   border-bottom: 1px solid var(--border-subtle);
-  font-family: var(--mono);
   font-size: 0.75rem;
+}
+
+.dv-hunk-text {
+  grid-column: -2;
+  padding-left: calc(var(--dv-gutter) * 2 + 1.4em);
+  /* The code's font and size, so that the gutter's width is the same here. */
+  font-family: var(--mono);
+  font-size: 0.8125rem;
+  white-space: pre;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.dv-hunk-ranges {
+  color: var(--dv-hunk-fg);
+}
+
+/* A hunk header standing for unchanged lines the page can show: their links
+   first, as Phabricator has them. */
+.dv-row-expand {
+  grid-template-columns: auto 1fr;
+}
+
+.dv-expand-buttons {
+  display: inline-flex;
+  padding: 0 0.75rem;
+  font-family: var(--sans);
+  white-space: nowrap;
+}
+
+.dv-row-expand .dv-hunk-text {
+  padding-left: 0.5rem;
+}
+
+.dv-expand {
+  padding: 0;
+  font: inherit;
+  color: var(--link);
+  background: none;
+  border: 0;
+  cursor: pointer;
+}
+
+.dv-expand + .dv-expand::before {
+  content: '•';
+  margin: 0 0.4em;
+  color: var(--dv-hunk-fg);
+}
+
+.dv-expand:hover {
+  text-decoration: underline;
+}
+
+/* Side by side, the links are under the old version and the function under
+   the new one, beside its code. */
+.dv-split .dv-row-hunk {
+  grid-template-columns: 1fr 1fr;
+}
+
+.dv-split .dv-expand-buttons {
+  justify-content: center;
+}
+
+.dv-split .dv-hunk-text,
+.dv-split .dv-row-expand .dv-hunk-text {
+  grid-column: 2;
+  padding-left: calc(var(--dv-gutter) + 1.4em);
+  border-left: 1px solid var(--border);
+  align-self: stretch;
+  display: flex;
+  align-items: center;
 }
 
 /* ---------------------------------------------------------------------------

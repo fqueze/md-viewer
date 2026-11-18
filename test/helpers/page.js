@@ -74,6 +74,11 @@ export async function annotatedPage(
 export function hands(window) {
   const { document } = window;
 
+  /** Once the page has laid its syntax colours over every file. */
+  const coloured = async () => {
+    while (!document.documentElement.dataset.coloured) await new Promise((resolve) => window.setTimeout(resolve, 5));
+  };
+
   /** Every text node under an element, in order. */
   const texts = (element) => {
     const out = [];
@@ -94,6 +99,7 @@ export function hands(window) {
   };
 
   return {
+    coloured,
     window,
     document,
     texts,

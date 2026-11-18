@@ -374,8 +374,18 @@ them with `Alt+↑` and `Alt+↓` or `Shift+↑` and `Shift+↓`; `Alt+L` and th
 gives a side-by-side diff the width back. The URL's `#n` records which commit
 is open, so a reload comes back to it.
 
-The page colours the code itself, a commit as it is shown, with
-highlight.js's core and the languages of its files only.
+Each changed file's new version is carried in the page, so a hunk can show
+more of the file around it: `▲ 20 more lines` under the hunk before,
+`▼ 20 more lines` over the one after, or all the lines between, numbered in
+both files — an
+unchanged line's old number is its new one moved by what the changes above it
+added or took away. The page carries a version once however many commits
+show it, and reads it only when you ask for more. A file larger than 1 MB, a
+binary one or a deleted one gets none. The page colours the code itself, a
+commit as it is shown, with highlight.js's core and the languages of its files
+only; where it has a file's new version, both versions are coloured whole (the
+old one is the new one with the hunks undone), so a comment or a string that
+opens above a hunk colours the hunk as it should.
 
 Below the commits, the files the open commit changes are listed as a tree of
 their directories, as on Phabricator. Click one to scroll the diff to it.

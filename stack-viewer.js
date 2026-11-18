@@ -19,7 +19,13 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { MAX_STACK_COMMITS, findStackRepository, openStack, readStack } from './lib/stack.js';
+import {
+  MAX_STACK_COMMITS,
+  findStackRepository,
+  openStack,
+  readFileVersions,
+  readStack,
+} from './lib/stack.js';
 import { buildStackPage } from './lib/stack-page.js';
 import { readAnnotations } from './lib/annotations.js';
 import { serveOnce, writeStandalone } from './lib/serve-once.js';
@@ -218,6 +224,13 @@ async function main() {
     patches = await readStack(stack, commits);
   } catch (error) {
     fail(`cannot read the commits: ${error.message}`);
+  }
+  // The files' versions, so the page can show more of each than the patch.
+  try {
+    const versions = await readFileVersions(stack, patches);
+    patches = patches.map((patch, i) => ({ ...patch, versions: versions[i] }));
+  } catch (error) {
+    fail(`cannot read the changed files: ${error.message}`);
   }
 
   const document = await buildStackPage(patches, { title, where: stack.root, annotations });

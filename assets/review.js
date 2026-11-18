@@ -1005,9 +1005,19 @@
     }
   }
 
+  /** The section of the page showing a file, by its path. */
+  function fileSection(path) {
+    var sections = article.querySelectorAll('.dv-file');
+    for (var i = 0; i < sections.length; i++) {
+      if (sections[i].dataset.path === path) return sections[i];
+    }
+    return null;
+  }
+
   /**
    * Bring back the drafts this commit was left with. Each is highlighted
-   * where its passage is, as after a live reload.
+   * where its passage is, as after a live reload — on a line the diff's
+   * context leaves out, once the page has shown that line again.
    */
   function restoreDrafts() {
     var store = DRAFTS && storage();
@@ -1030,6 +1040,14 @@
       comments.push(draft);
       var test = testOf(scopeNamed(draft.scope));
       var range = findAnchor(draft.textAnchor, test);
+      var anchor = draft.anchor;
+      if (!range && anchor && anchor.file && anchor.line && window.mdvRevealLine) {
+        var section = fileSection(anchor.file);
+        var line = Array.isArray(anchor.line) ? anchor.line[anchor.line.length - 1] : anchor.line;
+        if (section && window.mdvRevealLine(section, Number(line), anchor.side === 'old' ? 'old' : 'new')) {
+          range = findAnchor(draft.textAnchor, test);
+        }
+      }
       if (range) highlight(range, draft.id, test);
     }
     render();

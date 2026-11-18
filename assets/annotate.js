@@ -692,6 +692,11 @@
     var target = fileSection(file);
     // An outdated comment too, where the program placed it, as Phabricator shows one made on an older diff.
     var shown = target && number && fileLine(target, number, anchor.side === 'old' ? 'old' : 'new');
+    if (target && !shown && number && window.mdvRevealLine) {
+      // A line the diff's context leaves out is still in the file, and the
+      // page may be able to show it.
+      shown = window.mdvRevealLine(target, number, anchor.side === 'old' ? 'old' : 'new');
+    }
     if (shown) return { holder: holderAfter(shown, shown.dataset.side === 'del' || anchor.side === 'old' ? 'old' : 'new'), displaced: false };
     return { holder: earlierHolder(comment, 'file:' + file, file), displaced: true };
   }

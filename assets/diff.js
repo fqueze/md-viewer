@@ -74,6 +74,197 @@
   });
 
   // ---------------------------------------------------------------------------
+  // More context
+  // ---------------------------------------------------------------------------
+
+  /** Lines shown by one click above or below a hunk. */
+  var CONTEXT_STEP = 20;
+
+  /**
+   * The new version of a file, by blob id, as the page carries it: its lines
+   * as text, which colour.js colours once they are shown. Parsed
+   * the first time it is wanted. A commit's page inside stack-viewer finds
+   * it in the stack's document, which carries each version once for every
+   * commit that shows it.
+   */
+  var blobs = {};
+  function blobLines(oid) {
+    if (!oid) return null;
+    if (blobs[oid]) return blobs[oid];
+    var id = 'mdv-blob-' + oid;
+    var block = document.getElementById(id);
+    if (!block && window.parent !== window) {
+      try {
+        block = window.parent.document.getElementById(id);
+      } catch (error) {
+        // A parent of another origin is not a stack this page belongs to.
+      }
+    }
+    if (!block) return null;
+    blobs[oid] = JSON.parse(block.textContent);
+    return blobs[oid];
+  }
+
+  function escapeHtml(text) {
+    return text.replace(/[&<>"]/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c];
+    });
+  }
+
+  /**
+   * An unchanged line, drawn as the renderer draws one: numbered in both
+   * files, with the mirrored copy side by side needs. Its colours are the new
+   * file's, highlighted as a whole, on both copies: the line is the same in
+   * both files, and the old one is not carried.
+   */
+  function contextRow(oldLine, newLine, html) {
+    var row = document.createElement('div');
+    row.className = 'dv-row dv-row-context dv-row-expanded';
+    row.innerHTML =
+      '<div class="dv-line dv-line-ctx" data-side="ctx" data-line="' + newLine + '">' +
+      '<span class="dv-num dv-num-old mdv-aside">' + oldLine + '</span>' +
+      '<span class="dv-num dv-num-new mdv-aside">' + newLine + '</span>' +
+      '<span class="dv-marker mdv-aside" aria-hidden="true"></span>' +
+      '<span class="dv-text">' + html + '</span></div>' +
+      '<div class="dv-line dv-line-ctx dv-line-mirror mdv-aside" aria-hidden="true">' +
+      '<span class="dv-num dv-num-new">' + newLine + '</span>' +
+      '<span class="dv-marker"></span>' +
+      '<span class="dv-text">' + html + '</span></div>';
+    return row;
+  }
+
+  function button(label, kind, title) {
+    var b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'dv-expand dv-expand-' + kind;
+    b.dataset.expand = kind;
+    b.textContent = label;
+    if (title) b.title = title;
+    return b;
+  }
+
+  /**
+   * The links on a row standing for hidden lines, as Phabricator has them: ▲
+   * shows the first lines of the gap, above the row, under the hunk before
+   * it; ▼ its last lines, below the row, over the hunk after it; or all of
+   * them. Before the first hunk the first lines are the file's first, and
+   * after the last hunk its last.
+   */
+  function drawExpander(row) {
+    var old = row.querySelector('.dv-expand-buttons');
+    if (old) old.remove();
+    var from = Number(row.dataset.from);
+    var to = Number(row.dataset.to);
+    var count = to - from + 1;
+    if (count <= 0) {
+      // No lines hidden here; a hunk header with nothing to show stays one.
+      if (!row.querySelector('.dv-hunk-text').textContent) row.remove();
+      return;
+    }
+    var buttons = document.createElement('span');
+    buttons.className = 'dv-expand-buttons';
+    var atTop = from === 1;
+    var atEnd = !row.nextElementSibling;
+    if (count <= CONTEXT_STEP) {
+      buttons.appendChild(button('Show ' + count + (count === 1 ? ' line' : ' lines'), 'all'));
+    } else {
+      buttons.appendChild(
+        atTop
+          ? button('Show first ' + CONTEXT_STEP + ' lines', 'start')
+          : button('▲ ' + CONTEXT_STEP + ' more lines', 'start', 'Show more lines under the change above'),
+      );
+      buttons.appendChild(button('Show all ' + count + ' lines', 'all'));
+      buttons.appendChild(
+        atEnd
+          ? button('Show last ' + CONTEXT_STEP + ' lines', 'end')
+          : button('▼ ' + CONTEXT_STEP + ' more lines', 'end', 'Show more lines over the change below'),
+      );
+    }
+    row.insertBefore(buttons, row.firstChild);
+  }
+
+  /**
+   * Show lines `a` to `b` of the gap a row stands for, and return them. They
+   * go in after the row, and whatever of the gap is still hidden below them
+   * gets a row of its own, which takes the hunk header with it: the header
+   * belongs to the hunk below. A row left standing for no lines goes.
+   */
+  function reveal(row, a, b) {
+    var section = row.closest('.dv-file');
+    var blob = blobLines(section && section.dataset.blob);
+    if (!blob) return [];
+    var from = Number(row.dataset.from);
+    var to = Number(row.dataset.to);
+    var delta = Number(row.dataset.delta);
+    a = Math.max(a, from);
+    b = Math.min(b, to);
+    if (a > b) return [];
+
+    var shown = [];
+    var rows = [];
+    var at = row;
+    for (var n = a; n <= b; n++) {
+      var line = contextRow(n + delta, n, escapeHtml(blob.text[n - 1] || ''));
+      at.parentNode.insertBefore(line, at.nextSibling);
+      at = line;
+      rows.push(line);
+      shown.push(line.firstChild);
+    }
+    if (window.mdvColourLines) window.mdvColourLines(section, rows, blob.text);
+    var text = row.querySelector('.dv-hunk-text');
+    if (b < to) {
+      var rest = row.cloneNode(false);
+      rest.dataset.from = String(b + 1);
+      rest.dataset.to = String(to);
+      rest.appendChild(text);
+      at.parentNode.insertBefore(rest, at.nextSibling);
+      row.appendChild(document.createElement('span')).className = 'dv-hunk-text';
+      drawExpander(rest);
+    }
+    row.dataset.to = String(a - 1);
+    if (a <= from) row.remove();
+    else drawExpander(row);
+    return shown;
+  }
+
+  document.addEventListener('click', function (event) {
+    var target = event.target.closest('.dv-expand');
+    if (!target) return;
+    var row = target.closest('.dv-row-expand');
+    var from = Number(row.dataset.from);
+    var to = Number(row.dataset.to);
+    var kind = target.dataset.expand;
+    if (kind === 'end') reveal(row, to - CONTEXT_STEP + 1, to);
+    else if (kind === 'start') reveal(row, from, from + CONTEXT_STEP - 1);
+    else reveal(row, from, to);
+  });
+
+  /**
+   * Show a line of a file the diff's context leaves out, with a few either
+   * side, and return it — for a comment made on it, earlier or in a draft.
+   * `side` says which version `number` counts in; an old number is moved to
+   * the new file by the offset of the gap it is in. Null when the line is in
+   * no gap, or the file's version is not carried.
+   */
+  window.mdvRevealLine = function (section, number, side) {
+    var rows = section.querySelectorAll('.dv-row-expand');
+    for (var i = 0; i < rows.length; i++) {
+      var row = rows[i];
+      var n = side === 'old' ? number - Number(row.dataset.delta) : number;
+      if (n < Number(row.dataset.from) || n > Number(row.dataset.to)) continue;
+      var shown = reveal(row, n - 3, n + 3);
+      for (var j = 0; j < shown.length; j++) {
+        if (Number(shown[j].dataset.line) === n) return shown[j];
+      }
+      return null;
+    }
+    return null;
+  };
+
+  var expanders = document.querySelectorAll('.dv-row-expand');
+  for (var e = 0; e < expanders.length; e++) drawExpander(expanders[e]);
+
+  // ---------------------------------------------------------------------------
   // Where a comment landed
   // ---------------------------------------------------------------------------
 
