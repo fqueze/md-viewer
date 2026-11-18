@@ -121,3 +121,25 @@ test("a commit's drafts outlive its sha under the annotation's draftKey: a rebas
   const other = await annotatedPage({ draftKey: 'r-1:p-b' }, undefined, { storage: left(first.window), page: rewritten });
   assert.equal(other.window.mdvReviewComments().length, 0, "another patch's key");
 });
+
+test('a comment on the whole commit is kept as typed, reads as on the commit, and stays once sent', async () => {
+  const first = await annotatedPage();
+  const box = first.document.querySelector('.mdv-general-text');
+  box.value = 'Looks right overall.';
+  box.dispatchEvent(new first.window.Event('input', { bubbles: true }));
+  const [comment] = first.window.mdvReviewComments();
+  assert.deepEqual(plain({ text: comment.text, anchor: comment.anchor, quote: comment.quote }), {
+    text: 'Looks right overall.',
+    anchor: { file: '(commit)' },
+    quote: '',
+  });
+  assert.match(first.window.mdvReviewEntries([comment]), /^- the commit as a whole\n {2}Looks right overall\./);
+
+  const again = await annotatedPage(undefined, undefined, { storage: left(first.window) });
+  assert.equal(again.document.querySelector('.mdv-general-text').value, 'Looks right overall.');
+  const [kept] = again.window.mdvReviewComments();
+  again.window.mdvReviewMarkSent([kept.id]);
+  assert.equal(again.window.mdvReviewComments().length, 0);
+  assert.equal(again.document.querySelector('.mdv-general-text').value, '');
+  assert.equal(again.document.querySelector('.mdv-general-note').textContent, 'Looks right overall.');
+});

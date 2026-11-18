@@ -39,10 +39,10 @@ test("the status is a badge under the message's first line", async () => {
   assert.ok(badge.parentElement.classList.contains('mdv-aside'));
 });
 
-test('an action at the end goes after the files', async () => {
+test('an action at the end goes after the files, by the comment on the whole commit', async () => {
   const window = await annotatedPage({ actions: [{ id: 'approve', label: 'Approve', kind: 'button', at: 'end' }] });
   const heard = actions(window);
-  const button = window.document.querySelector('.mdv-annot-end .mdv-action-button');
+  const button = window.document.querySelector('#mdv-general .mdv-action-button');
   assert.equal(button.textContent, 'Approve');
   assert.equal(window.document.querySelector('.dv-message .mdv-action-button'), null);
   button.click();

@@ -649,6 +649,8 @@
   function reattach() {
     for (var i = 0; i < comments.length; i++) {
       var comment = comments[i];
+      // On the whole commit, not on a passage.
+      if (comment.general) continue;
       // The anchor was recorded from one column's text, so it only reads back
       // against that same column — which is why the comment kept its name.
       var test = testOf(scopeNamed(comment.scope));
@@ -872,11 +874,70 @@
       var comment = comments[j];
       if (!wanted[comment.id] || comment.sent) continue;
       comment.sent = true;
+      if (comment.general) generalSent(comment);
       markSent(article.querySelectorAll('mark.mdv-mark[data-comment-id="' + comment.id + '"]'));
     }
     render();
     saveDrafts();
   };
+
+  // ---------------------------------------------------------------------------
+  // The comment on the whole commit
+  // ---------------------------------------------------------------------------
+
+  /**
+   * A commit's page ends with a box for a comment on the commit as a whole,
+   * for what is said once it has all been read: one comment, on no passage,
+   * with nothing to quote, which a program reads as anchored on the commit.
+   * Sent, it stays above the box, read-only, and the box starts a new one.
+   */
+  var general = document.getElementById('mdv-general');
+  var generalText = general && general.querySelector('.mdv-general-text');
+  var generalId = null;
+
+  function typedGeneral() {
+    var text = generalText.value.trim();
+    var comment = generalId && find(generalId);
+    if (!text) {
+      if (comment) remove(generalId);
+      generalId = null;
+      return;
+    }
+    if (comment) {
+      comment.text = text;
+    } else {
+      generalId = newId();
+      comments.push({
+        id: generalId,
+        general: true,
+        text: text,
+        textAnchor: null,
+        anchor: { file: '(commit)' },
+        quote: '',
+        line: null,
+        place: { general: true, anchor: { file: '(commit)' } },
+        scope: null,
+      });
+    }
+    render();
+    saveDrafts();
+  }
+
+  function generalSent(comment) {
+    var sent = general.querySelector('.mdv-general-sent');
+    var note = document.createElement('div');
+    note.className = 'mdv-general-note';
+    note.textContent = comment.text;
+    note.title = 'Sent';
+    sent.appendChild(note);
+    sent.hidden = false;
+    if (comment.id === generalId) {
+      generalId = null;
+      generalText.value = '';
+    }
+  }
+
+  if (generalText) generalText.addEventListener('input', typedGeneral);
 
   // ---------------------------------------------------------------------------
   // Drafts
@@ -910,6 +971,7 @@
   function draftOf(comment, text) {
     return {
       id: comment.id,
+      general: comment.general || undefined,
       text: text,
       textAnchor: comment.textAnchor,
       anchor: comment.anchor || (comment.place && comment.place.anchor) || null,
@@ -958,6 +1020,12 @@
     if (!Array.isArray(kept)) return;
     for (var i = 0; i < kept.length; i++) {
       var draft = kept[i];
+      if (draft && draft.general && generalText && !generalId && draft.text) {
+        comments.push(draft);
+        generalId = draft.id;
+        generalText.value = draft.text;
+        continue;
+      }
       if (!draft || !draft.id || !draft.text || !draft.textAnchor || find(draft.id)) continue;
       comments.push(draft);
       var test = testOf(scopeNamed(draft.scope));

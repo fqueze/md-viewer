@@ -465,7 +465,7 @@ would be without one.
   so that the program knows where the reader went — to file the bug it
   drafted, say, whose number it can then look for once they are back.
 - `actions` are controls on the message's bar, or with `"at": "end"` at the end
-  of the page, after the files, for
+  of the page, after the files and by the comment on the whole commit, for
   what is done once it has all been read: a `button`, or an `input` that
   fires on Enter. A button at the end is filled in the link colour, or green
   with `"tone": "positive"`; `"disabled": true` greys it out. The page does nothing with them itself. Using one dispatches,
@@ -557,6 +557,7 @@ reload, its `text`, and an `anchor` saying where it is:
 { file: 'dom/base/Foo.cpp', line: 12, side: 'new' }   // a line of a file, or old for a deletion
 { file: 'dom/base/Foo.cpp', line: [12, 15], side: 'new' }   // several lines
 { file: '(commit)', line: 3 }              // the commit message, counting its lines
+{ file: '(commit)' }                       // the commit as a whole, from the box at the end of its page
 { file: '(section:test-plan)', line: 7 }   // a section, counting lines of its markdown
 ```
 

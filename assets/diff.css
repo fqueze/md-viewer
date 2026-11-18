@@ -1214,16 +1214,52 @@ label.mdv-respond {
 }
 
 /* ---------------------------------------------------------------------------
-   The end of a commit's page: the actions for once it has all been read, such
-   as approving it.
+   The end of a commit's page: a comment on the whole commit, and the actions
+   for once it has all been read, such as approving it.
    --------------------------------------------------------------------------- */
 
+.mdv-general {
+  margin: 0 0 1.5rem;
+  padding: 0.75rem;
+  background: var(--bg-subtle);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+}
+
+.mdv-general-text {
+  display: block;
+  box-sizing: border-box;
+  width: 100%;
+  padding: 0.5rem;
+  font: 0.9rem/1.5 var(--sans);
+  color: var(--fg);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  resize: vertical;
+}
+
+.mdv-general-note {
+  margin-bottom: 0.5rem;
+  padding: 0.4rem 0.6rem;
+  font-size: 0.9rem;
+  white-space: pre-wrap;
+  color: var(--fg-muted);
+  border-left: 3px solid var(--border);
+}
+
+.mdv-general-end,
 .mdv-actions-end {
   display: flex;
   justify-content: flex-end;
   gap: 0.5rem;
 }
 
+.mdv-general-end:not(:empty) {
+  margin-top: 0.6rem;
+}
+
+/* The end a loose diff's actions get, having no comment box. */
 .mdv-annot-end {
   margin: 0 0 1.5rem;
 }

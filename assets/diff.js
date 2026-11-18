@@ -324,6 +324,13 @@
       var where;
       // The message and the sections are prose rather than a patch.
       var prose = place.message || place.section;
+      if (place.general) {
+        // On the commit as a whole: no passage, nothing to quote.
+        out.push('- the commit as a whole');
+        out.push('  ' + comment.text.replace(/\n/g, '\n  '));
+        out.push('');
+        continue;
+      }
       if (place.message) {
         // A comment on the message names the message, not a file. Its number
         // counts lines of the message text, which is worth saying: it is not a

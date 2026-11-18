@@ -217,11 +217,14 @@
     sendPanel(field.dataset.action);
   });
 
-  /** Where actions for after the whole commit was read go (`at: "end"`): the end of the page. */
+  /**
+   * Where actions for after the whole commit was read go (`at: "end"`): the
+   * end of the page, by the comment on the whole commit when it has one.
+   */
   function end() {
-    var place = document.querySelector('.mdv-annot-end');
+    var place = document.querySelector('.mdv-general-end');
     if (place) return place;
-    place = element('div', 'mdv-annot-end');
+    place = element('div', 'mdv-general-end mdv-annot-end');
     article.parentNode.insertBefore(place, article.nextSibling);
     return place;
   }
