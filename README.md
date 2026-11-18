@@ -477,6 +477,14 @@ would be without one.
 
   with `value` the input's text, or undefined for a button.
 
+- `panels` are boxes under the message's title, for something to do about
+  the commit, such as a bug to file: `{ "id", "title"?, "href", "tooltip",
+  "tone", "markdown", "details": [{ "label", "markdown", "copy" }],
+  "input": { "id", "placeholder", "button" } }`. The title links to `href`
+  (and dispatches `mdv-link` as a title link does); each detail is folded
+  under its label, with a Copy button when `copy`; the input's button, or
+  Enter, fires `mdv-action` with its `id` and what was typed. `tone`
+  `attention` draws it in red.
 - `sections` are drawn in the message's box, under it, in order (in a box of
   their own over a loose diff), each its `markdown` under its `title`. A passage of one is commented on as
   the message is. The markdown is the program's rather than the reader's, so

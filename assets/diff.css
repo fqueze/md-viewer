@@ -452,6 +452,90 @@
   min-height: 0;
 }
 
+/* A program's panels under the title, such as a bug to file. */
+.mdv-panels {
+  margin: 0.2rem 0 0.6rem;
+}
+
+.mdv-panel {
+  padding: 0.5rem 0.75rem;
+  font-size: 0.85rem;
+  background: var(--bg-subtle);
+  border-radius: 6px;
+}
+
+.mdv-panel + .mdv-panel {
+  margin-top: 0.5rem;
+}
+
+.mdv-panel-attention {
+  background: color-mix(in srgb, var(--danger) 9%, var(--bg));
+}
+
+.mdv-panel-title {
+  font-weight: 600;
+}
+
+.mdv-panel-attention .mdv-panel-title,
+.mdv-panel-attention a.mdv-panel-link {
+  color: var(--danger);
+}
+
+#mdv-content .mdv-panel-text p {
+  margin: 0.2rem 0;
+}
+
+.mdv-panel-text {
+  color: var(--fg-muted);
+}
+
+/* As the factory's page has them: plain, the text unboxed. */
+#mdv-content .mdv-panel-detail summary {
+  font-weight: normal;
+  cursor: pointer;
+}
+
+.mdv-panel-copy,
+.mdv-panel-send {
+  margin-left: 0.4rem;
+  padding: 0.05rem 0.5rem;
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: normal;
+  color: var(--fg);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.mdv-panel-copy.mdv-copied {
+  border-color: var(--accent);
+}
+
+.mdv-panel-detail-body {
+  margin: 0.2rem 0 0.3rem;
+}
+
+#mdv-content .mdv-panel-detail-body p {
+  margin: 0.2rem 0;
+}
+
+.mdv-panel-input {
+  display: flex;
+  margin-top: 0.4rem;
+}
+
+.mdv-panel-input input {
+  flex: 1;
+  padding: 0.3rem 0.5rem;
+  font: inherit;
+  color: var(--fg);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+}
+
 /* The bar a loose diff gets for them, having no message to carry one. */
 .mdv-annot-bar {
   margin-bottom: 1rem;

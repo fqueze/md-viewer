@@ -278,6 +278,23 @@ test('mdvSetAnnotations in the stack redraws the list and reaches the page, now 
   assert.equal(window.mdvSetAnnotations('ffffffff', approved), false);
 });
 
+test('a panel under the title has its link, folded details and a field firing its id', async () => {
+  const window = await annotatedPage({
+    status: { kind: 'unreviewed', label: 'Needs review' },
+    panels: [{ id: 'bug', title: 'Bug to file', href: 'https://bugzilla.example/enter', tone: 'attention', markdown: 'Core::DOM · “It fails”', details: [{ label: 'Description', markdown: 'It **fails**.', copy: true }], input: { id: 'bug-draft', placeholder: 'Paste the bug number', button: 'Send' } }],
+  });
+  const heard = actions(window);
+  const panel = window.document.querySelector('.mdv-panel');
+  assert.ok(panel.closest('.mdv-panels').previousElementSibling.classList.contains('mdv-badge-row'));
+  assert.equal(panel.querySelector('a.mdv-panel-link').href, 'https://bugzilla.example/enter');
+  assert.equal(panel.querySelector('details strong').textContent, 'fails');
+  const field = panel.querySelector('.mdv-panel-input input');
+  field.value = ' 2000001 ';
+  panel.querySelector('.mdv-panel-send').click();
+  assert.deepEqual(JSON.parse(JSON.stringify(heard)), [{ commit: SHA, id: 'bug-draft', value: '2000001' }]);
+  assert.equal(field.value, '');
+});
+
 test("a title link's tone draws it as what is to be done, under its label", async () => {
   const window = await annotatedPage({ titleLinks: [{ text: 'Bug XXXXXXX', href: 'https://bugzilla.example/enter', label: '⚑ Bug to file', tone: 'attention' }] });
   const a = window.document.querySelector('.dv-msg-table a.mdv-title-link');

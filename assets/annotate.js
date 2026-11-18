@@ -100,6 +100,123 @@
     header.insertBefore(badge, id ? id.nextSibling : header.firstChild);
   }
 
+  /**
+   * A program's panels (`panels`), each a box under the message's title —
+   * the status's line when there is one — as a program's own page would show
+   * a thing to do about the commit, such as a bug to file: a title, linked
+   * when it has an `href`; its `markdown`; `details`, each folded under its
+   * label, with a button copying its text when `copy`; and an `input`, a
+   * field with a button, which fires its `id` with what was typed (Enter
+   * does too). A redraw keeps what is being typed, and the folds open.
+   */
+  function drawPanels() {
+    var typed = {};
+    var open = {};
+    var olds = article.querySelectorAll('.mdv-panels');
+    for (var o = 0; o < olds.length; o++) {
+      var fields = olds[o].querySelectorAll('.mdv-panel-input input');
+      for (var f = 0; f < fields.length; f++) typed[fields[f].dataset.action] = fields[f].value;
+      var folds = olds[o].querySelectorAll('details[data-fold]');
+      for (var d = 0; d < folds.length; d++) open[folds[d].dataset.fold] = folds[d].open;
+      olds[o].remove();
+    }
+    var panels = annotation.panels || [];
+    if (!panels.length) return;
+    var box = element('div', 'mdv-panels mdv-aside');
+    for (var i = 0; i < panels.length; i++) {
+      var panel = panels[i] || {};
+      var node = element('div', 'mdv-panel mdv-panel-' + kindOf(panel.tone));
+      if (panel.title) {
+        var title = element('div', 'mdv-panel-title');
+        var href = safeHref(panel.href);
+        if (href) {
+          var a = element('a', 'mdv-panel-link', panel.title);
+          a.href = href;
+          a.target = '_blank';
+          a.rel = 'noopener';
+          if (panel.tooltip) a.title = panel.tooltip;
+          title.appendChild(a);
+        } else {
+          title.textContent = panel.title;
+        }
+        node.appendChild(title);
+      }
+      if (panel.markdown) {
+        var text = element('div', 'mdv-panel-text');
+        text.innerHTML = markdownHtml(panel.markdown);
+        node.appendChild(text);
+      }
+      var details = panel.details || [];
+      for (var k = 0; k < details.length; k++) {
+        var detail = details[k] || {};
+        var fold = element('details', 'mdv-panel-detail');
+        fold.dataset.fold = (panel.id || i) + ':' + k;
+        fold.open = Boolean(open[fold.dataset.fold]);
+        var summary = element('summary', null, detail.label || '');
+        if (detail.copy) {
+          var copy = element('button', 'mdv-panel-copy', 'Copy');
+          copy.type = 'button';
+          copy.dataset.copy = String(detail.markdown || '');
+          summary.appendChild(copy);
+        }
+        fold.appendChild(summary);
+        var body = element('div', 'mdv-panel-detail-body');
+        body.innerHTML = markdownHtml(detail.markdown);
+        fold.appendChild(body);
+        node.appendChild(fold);
+      }
+      var input = panel.input;
+      if (input && input.id != null) {
+        var row = element('div', 'mdv-panel-input');
+        var field = element('input');
+        field.type = 'text';
+        field.dataset.action = String(input.id);
+        if (input.placeholder) field.placeholder = input.placeholder;
+        if (typed[input.id] != null) field.value = typed[input.id];
+        row.appendChild(field);
+        var send = element('button', 'mdv-panel-send', input.button || 'Send');
+        send.type = 'button';
+        send.dataset.action = String(input.id);
+        row.appendChild(send);
+        node.appendChild(row);
+      }
+      box.appendChild(node);
+    }
+    var badge = article.querySelector('.mdv-badge-row');
+    var title = badge || article.querySelector('.dv-line-msg[data-msg-line="1"]');
+    if (title) title.parentNode.insertBefore(box, title.nextSibling);
+    else article.insertBefore(box, article.firstChild);
+  }
+
+  function sendPanel(id) {
+    var field = article.querySelector('.mdv-panel-input input[data-action="' + id + '"]');
+    if (!field || !field.value.trim()) return;
+    fire(id, field.value.trim());
+    field.value = '';
+  }
+
+  document.addEventListener('click', function (event) {
+    var send = event.target.closest && event.target.closest('.mdv-panel-send');
+    if (send) return sendPanel(send.dataset.action);
+    var copy = event.target.closest && event.target.closest('.mdv-panel-copy');
+    if (!copy) return;
+    // In the summary: copying does not fold the details open or shut.
+    event.preventDefault();
+    navigator.clipboard.writeText(copy.dataset.copy).then(function () {
+      copy.classList.add('mdv-copied');
+      setTimeout(function () {
+        copy.classList.remove('mdv-copied');
+      }, 1200);
+    });
+  });
+
+  document.addEventListener('keydown', function (event) {
+    var field = event.target.closest && event.target.closest('.mdv-panel-input input');
+    if (!field || event.key !== 'Enter') return;
+    event.preventDefault();
+    sendPanel(field.dataset.action);
+  });
+
   /** Where actions for after the whole commit was read go (`at: "end"`): the end of the page. */
   function end() {
     var place = document.querySelector('.mdv-annot-end');
@@ -199,7 +316,8 @@
    * usual.
    */
   function linkFollowed(event) {
-    var a = event.target.closest && event.target.closest('a.mdv-title-link');
+    // A panel's title link too.
+    var a = event.target.closest && event.target.closest('a.mdv-title-link, a.mdv-panel-link');
     if (!a || event.button > 1) return;
     var top = window.top;
     var detail = top.JSON.parse(JSON.stringify({ commit: sha, text: a.textContent, href: a.href }));
@@ -1002,6 +1120,7 @@
   function draw() {
     drawStatus();
     drawTitleLinks();
+    drawPanels();
     drawActions();
     drawThreads();
   }
